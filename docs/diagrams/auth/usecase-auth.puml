@@ -24,24 +24,12 @@ rectangle "Hệ thống Định danh & Xác thực Thành viên" {
     usecase "Đăng ký tài khoản" as UC_Register
     usecase "Đăng nhập hệ thống" as UC_Login
 
-    ' --- Nhóm Use Case phụ bắt buộc thực hiện (<<include>> đặt bên phải) ---
-    usecase "Kiểm tra tính hợp lệ\nvà trùng lặp Email" as UC_ValidateEmail
-    usecase "Băm mật khẩu\n(BCrypt)" as UC_HashPassword
-    usecase "Cấp phát JWT\nAccess Token" as UC_IssueJWT
-    usecase "Xác thực phiên làm việc\nbằng JWT" as UC_VerifyJWT
 }
 
 ' --- Quan hệ giữa Actor và các Use Case chính ---
-User --> UC_Register
-User --> UC_Login
+User -- UC_Register
+User -- UC_Login
 
-' --- Quan hệ <<include>> của chức năng Đăng ký ---
-UC_Register ..> UC_ValidateEmail : <<include>>
-UC_Register ..> UC_HashPassword : <<include>>
-
-' --- Quan hệ <<include>> của chức năng Đăng nhập ---
-UC_Login ..> UC_IssueJWT : <<include>>
-UC_Login ..> UC_VerifyJWT : <<include>>
 
 
 @enduml

@@ -1,0 +1,51 @@
+@startuml
+
+skinparam backgroundColor white
+skinparam sequence {
+    ArrowColor #2C3E50
+    LifeLineBorderColor #2C3E50
+    LifeLineBorderThickness 1.5
+    LifeLineBackgroundColor #EBF5FB
+    ParticipantBorderColor #2980B9
+    ParticipantBackgroundColor #EBF5FB
+    ParticipantFontColor #1B4F72
+    ActorBorderColor #2980B9
+    ActorBackgroundColor #EBF5FB
+    BoxBorderColor #2C3E50
+    BoxBackgroundColor #FFFFFF
+    MessageAlign center
+    ResponseMessageBelowArrow true
+}
+
+autoactivate on
+
+actor "Người dùng" as User
+boundary "Màn hình Đăng nhập" as LoginUI
+control "AuthController" as Controller
+control "AuthService" as Service
+control "UserRepository" as Repo
+database "Cơ sở dữ liệu" as DB
+
+User -> LoginUI : Nhập email, mật khẩu\nvà nhấn "Đăng nhập"
+LoginUI -> Controller : login(email, password)
+Controller -> Service : authenticate(email, password)
+Service -> Repo : findByEmail(email)
+Repo -> DB : SELECT * FROM Users WHERE email = ?
+DB --> Repo : Dữ liệu User (hoặc null)
+Repo --> Service : User entity (hoặc null)
+
+alt Email tồn tại và khớp mật khẩu BCrypt (AC 3 - Đăng nhập thành công)
+    Service -> Service : verifyBCrypt(password, password_hash)
+    deactivate Service
+    Service -> Service : generateJwtAccessToken(user)
+    deactivate Service
+    Service --> Controller : JWT Access Token (có thời hạn hiệu lực)
+    Controller --> LoginUI : 200 OK (JWT Access Token)
+    LoginUI --> User : Lưu phiên đăng nhập &\nChuyển hướng về Trang chủ
+else Sai email hoặc sai mật khẩu (AC 4 - Đăng nhập thất bại)
+    Service --> Controller : Xác thực thất bại
+    Controller --> LoginUI : 401 Unauthorized ("Thông tin đăng nhập không chính xác")
+    LoginUI --> User : Từ chối đăng nhập & Hiển thị lỗi\n"Thông tin đăng nhập không chính xác"
+end
+
+@enduml
