@@ -1,0 +1,69 @@
+@startuml
+
+skinparam monochrome true
+skinparam shadowing false
+skinparam backgroundColor white
+
+skinparam activity {
+    BackgroundColor #FFFFFF
+    BorderColor #000000
+    BorderThickness 1.5
+    FontColor #000000
+    FontSize 13
+    ArrowColor #000000
+}
+
+skinparam activityDiamond {
+    BackgroundColor #FFFFFF
+    BorderColor #000000
+    BorderThickness 1.5
+    FontColor #000000
+}
+
+skinparam partition {
+    BorderColor #000000
+    BackgroundColor #FFFFFF
+    FontColor #000000
+    FontSize 13
+}
+
+start
+
+' --- GIAI ĐOẠN 1: ĐĂNG NHẬP & CẤP PHÁT JWT ---
+partition "Người dùng" {
+    :Nhập email và mật khẩu;
+    :Nhấn "Đăng nhập";
+}
+
+partition "Hệ thống" {
+    :Đối chiếu email và mật khẩu;
+    
+    if (Thông tin đăng nhập chính xác?) then ([Đúng])
+        :Cấp phát JWT Access Token\n(có thời hạn hiệu lực);
+        :Chuyển hướng về Trang chủ;
+    else ([Sai email hoặc mật khẩu])
+        :Từ chối đăng nhập;
+        :Hiển thị thông báo lỗi:\n"Thông tin đăng nhập không chính xác";
+        stop
+    endif
+}
+
+' --- GIAI ĐOẠN 2: XÁC THỰC JWT KHI TRUY CẬP TÀI NGUYÊN ---
+partition "Người dùng" {
+    :Yêu cầu truy cập tài nguyên thành viên\n(đính kèm JWT Access Token);
+}
+
+partition "Hệ thống" {
+    :Kiểm tra sự tồn tại, chữ ký và thời hạn của JWT;
+    
+    if (Có JWT hợp lệ và còn hạn?) then ([Hợp lệ])
+        :Cho phép truy cập tính năng thành viên;
+    else ([Không có JWT / Sai chữ ký / Hết hạn])
+        :Từ chối truy cập (401 Unauthorized);
+        :Chuyển hướng về trang "Đăng nhập";
+    endif
+}
+
+stop
+
+@enduml

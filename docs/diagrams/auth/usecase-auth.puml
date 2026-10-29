@@ -1,0 +1,35 @@
+@startuml
+left to right direction
+
+' Cấu hình giao diện cho Use Case
+skinparam usecase {
+    BackgroundColor #FFFFFF
+    BorderColor #2C3E50
+    BorderThickness 1.5
+    FontSize 13
+}
+
+' Cấu hình giao diện cho Actor
+skinparam actor {
+    BackgroundColor #EBF5FB
+    BorderColor #2980B9
+}
+
+' Khai báo Actor bên ngoài hệ thống (bên trái)
+actor "Người dùng" as User
+
+' Khai báo ranh giới hệ thống (System Boundary)
+rectangle "Hệ thống Định danh & Xác thực Thành viên" {
+    ' --- Nhóm Use Case chính (ở trung tâm) ---
+    usecase "Đăng ký tài khoản" as UC_Register
+    usecase "Đăng nhập hệ thống" as UC_Login
+
+}
+
+' --- Quan hệ giữa Actor và các Use Case chính ---
+User -- UC_Register
+User -- UC_Login
+
+
+
+@enduml

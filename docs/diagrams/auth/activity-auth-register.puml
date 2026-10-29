@@ -1,0 +1,60 @@
+@startuml
+
+skinparam monochrome true
+skinparam shadowing false
+skinparam backgroundColor white
+
+skinparam activity {
+    BackgroundColor #FFFFFF
+    BorderColor #000000
+    BorderThickness 1.5
+    FontColor #000000
+    FontSize 13
+    ArrowColor #000000
+}
+
+skinparam activityDiamond {
+    BackgroundColor #FFFFFF
+    BorderColor #000000
+    BorderThickness 1.5
+    FontColor #000000
+}
+
+skinparam partition {
+    BorderColor #000000
+    BackgroundColor #FFFFFF
+    FontColor #000000
+    FontSize 13
+}
+
+start
+
+partition "Người dùng" {
+    :Nhập email và mật khẩu;
+    :Nhấn "Đăng ký";
+}
+
+partition "Hệ thống" {
+    :Kiểm tra định dạng mật khẩu (>= 8 ký tự);
+    
+    if (Mật khẩu hợp lệ?) then ([Hợp lệ])
+        :Kiểm tra trùng lặp email trong hệ thống;
+        
+        if (Email đã tồn tại?) then ([Có - Trùng lặp])
+            :Hiển thị thông báo lỗi:\n"Email này đã được sử dụng";
+            stop
+        else ([Không - Chưa tồn tại])
+            :Băm mật khẩu bằng BCrypt;
+            :Tạo tài khoản mới;
+            :Thông báo đăng ký thành công;
+            :Chuyển hướng tới trang "Đăng nhập";
+        endif
+    else ([Không hợp lệ])
+        :Hiển thị thông báo lỗi mật khẩu không hợp lệ;
+        stop
+    endif
+}
+
+stop
+
+@enduml
