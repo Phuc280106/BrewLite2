@@ -1,0 +1,20 @@
+@startuml usecase-menu
+left to right direction
+
+actor "Khách hàng" as KhachHang
+
+rectangle "Hệ thống BrewLite - Hiển thị menu & Lọc theo danh mục" {
+  usecase "Xem menu" as XemMenu
+  usecase "Xem chi tiết món" as XemChiTiet
+  usecase "Lọc theo danh mục" as LocDanhMuc
+  usecase "Tìm kiếm món" as TimKiem
+}
+
+KhachHang -- XemMenu
+KhachHang -- XemChiTiet
+
+XemChiTiet .> XemMenu : <<extend>>
+LocDanhMuc .> XemMenu : <<extend>>
+TimKiem .> XemMenu : <<extend>>
+
+@enduml
