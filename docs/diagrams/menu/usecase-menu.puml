@@ -1,5 +1,6 @@
 @startuml usecase-menu
 left to right direction
+skinparam packageStyle rectangle
 
 actor "Khách hàng" as KhachHang
 
@@ -11,10 +12,9 @@ rectangle "Hệ thống BrewLite - Hiển thị menu & Lọc theo danh mục" {
 }
 
 KhachHang -- XemMenu
-KhachHang -- XemChiTiet
 
-XemChiTiet .> XemMenu : <<extend>>
-LocDanhMuc .> XemMenu : <<extend>>
-TimKiem .> XemMenu : <<extend>>
+XemMenu <.. XemChiTiet : <<extend>>
+XemMenu <.. LocDanhMuc : <<extend>>
+XemMenu <.. TimKiem : <<extend>>
 
 @enduml
