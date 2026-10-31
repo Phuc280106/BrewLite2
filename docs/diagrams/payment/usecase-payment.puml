@@ -1,0 +1,52 @@
+@startuml
+left to right direction
+
+skinparam usecase {
+    BackgroundColor #FFFFFF
+    BorderColor #2C3E50
+    BorderThickness 1.5
+    FontSize 13
+}
+skinparam actor {
+    BackgroundColor #EBF5FB
+    BorderColor #2980B9
+}
+skinparam rectangle {
+    BorderColor #2C3E50
+}
+skinparam ArrowColor #2C3E50
+
+title Sơ đồ use case chức năng Thanh toán mô phỏng & Chống trùng lặp (FR-06)
+
+actor "Khách hàng" as Customer
+actor "Cổng thanh toán\nmô phỏng" as Gateway
+
+rectangle "Phân hệ Thanh toán & Giao dịch (Payment & Transaction Module)" {
+    usecase "Thanh toán đơn hàng" as UC_Pay
+
+    usecase "Chọn phương thức thanh toán\n(MOCK_CARD / MOCK_WALLET)" as UC_Method
+    usecase "Sinh Idempotency-Key\n(UUIDv4)" as UC_GenKey
+    usecase "Kiểm tra Idempotency-Key" as UC_CheckKey
+    usecase "Xử lý giao dịch mô phỏng" as UC_Process
+    usecase "Cập nhật trạng thái\nthanh toán & đơn hàng" as UC_Update
+
+    usecase "Trả về kết quả giao dịch cũ\n(không trừ tiền lần 2)" as UC_Replay
+    usecase "Xử lý thanh toán thất bại\n(Payment = FAILED)" as UC_Fail
+    usecase "Hủy đơn & hoàn kho\nkhi quá 15 phút" as UC_Timeout
+}
+
+Customer -- UC_Pay
+UC_Fail -[hidden]right- Gateway
+UC_Process -- Gateway
+
+UC_Pay ..> UC_Method : <<include>>
+UC_Pay ..> UC_GenKey : <<include>>
+UC_Pay ..> UC_CheckKey : <<include>>
+UC_Pay ..> UC_Process : <<include>>
+UC_Pay ..> UC_Update : <<include>>
+
+UC_Replay .left.> UC_CheckKey : <<extend>>\n[key đã tồn tại]
+UC_Fail .left.> UC_Process : <<extend>>\n[giao dịch bị từ chối]
+UC_Timeout .up.> UC_Pay : <<extend>>\n[quá 15 phút chưa thanh toán]
+
+@enduml
