@@ -30,7 +30,7 @@ skinparam partition {
 start
 
 partition "Người dùng" {
-    :Nhập email và mật khẩu;
+    :Nhập họ tên, email và mật khẩu;
     :Nhấn "Đăng ký";
 }
 

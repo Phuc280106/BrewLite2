@@ -86,7 +86,7 @@ Toàn bộ các yêu cầu của hệ thống được phân cấp theo khung ch
 #### `FR-04`: Đăng ký, Đăng nhập & Xác thực Phân quyền JWT
 * **Phân hệ thực thi:** Phân hệ Xác thực & Phân quyền (`Auth & Identity Module`)
 * **Mức ưu tiên:** `Must`
-* **Mô tả:** Cung cấp chức năng đăng ký tài khoản mới (Họ tên, Email, Số điện thoại, Mật khẩu) và đăng nhập hệ thống. Mật khẩu được mã hóa an toàn bằng thuật toán `bcrypt`. Xác thực người dùng bằng cơ chế JSON Web Token (JWT) cho các endpoint yêu cầu bảo mật. Phân quyền vai trò: `CUSTOMER` và `ADMIN`.
+* **Mô tả:** Cung cấp chức năng đăng ký tài khoản mới (Họ tên, Email, Mật khẩu) và đăng nhập hệ thống. Mật khẩu được mã hóa an toàn bằng thuật toán `bcrypt`. Xác thực người dùng bằng cơ chế JSON Web Token (JWT) cho các endpoint yêu cầu bảo mật. Phân quyền vai trò: `CUSTOMER` và `ADMIN`.
 * **Tiêu chí chấp nhận có thể kiểm chứng (AC):**
   * **AC-04.1:** Đăng ký thành công: Gửi `POST /api/v1/auth/register` với email hợp lệ chưa tồn tại và mật khẩu $\ge 6$ ký tự, hệ thống băm mật khẩu bằng `bcrypt` (salt rounds $\ge 10$), lưu vào DB và trả về HTTP `201 Created`.
   * **AC-04.2:** Trùng lặp email: Nếu email đã tồn tại, hệ thống từ chối đăng ký và trả về HTTP `409 Conflict` kèm thông báo *"Email đã được sử dụng"*.
