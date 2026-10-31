@@ -84,3 +84,19 @@
   - Người dùng ở lại màn hình đăng nhập để nhập lại.
 * **6a. Tài khoản bị khóa (nếu có):**
   - Hệ thống phát hiện cờ trạng thái tài khoản không kích hoạt $\rightarrow$ Báo lỗi *"Tài khoản đã bị vô hiệu hóa"*.
+## USE CASE 3: Đăng xuất hệ thống (UC_Logout)
+### 1. Thông tin chung
+* **Mã Yêu Cầu:** Cần bổ xung
+* **Tên Use Case:** Đăng xuất ra khỏi hệ thống
+* **Actor chính:** Khách hàng, Quản trị viên (Người dùng đã có tài khoản)
+* **Trigger:** Người dùng nhấn nút "Đăng Xuất" trên thanh điều hướng hoặc truy cập trang `/logout`.
+
+### 2. Tiền điều kiện & Hậu điều kiện
+* **Tiền điều kiện:** Người dùng đang có phiên đăng nhập hợp lệ `(có JWT token)`
+* **Hậu điều kiện:** Token bị xoá bỏ ở phía Client, người dùng trở về trạng thái khách vãng lai nhập và đưa về trang chủ
+
+### 3. Luồng sự kiện chính (Main Flow)
+1. Người dùng ấn nút "Đăng xuất trên thanh điều hướng hoặc menu tài khoản"
+2. Hệ thống xác nhận và thực hiện xoá `accessToken` khỏi bộ nhớ trình duyệt `(localStorage)`
+3. Hệ thống đặt lại trạng thái người dùng về trạng thái `khách vãng lai` và điều hướng về trang chủ
+
