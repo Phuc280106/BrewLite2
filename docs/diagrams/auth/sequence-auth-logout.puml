@@ -1,0 +1,38 @@
+@startuml
+
+skinparam backgroundColor white
+skinparam sequence {
+    ArrowColor #2C3E50
+    LifeLineBorderColor #2C3E50
+    LifeLineBorderThickness 1.5
+    LifeLineBackgroundColor #EBF5FB
+    ParticipantBorderColor #2980B9
+    ParticipantBackgroundColor #EBF5FB
+    ParticipantFontColor #1B4F72
+    ActorBorderColor #2980B9
+    ActorBackgroundColor #EBF5FB
+    BoxBorderColor #2C3E50
+    BoxBackgroundColor #FFFFFF
+    MessageAlign center
+    ResponseMessageBelowArrow true
+}
+
+autoactivate on
+
+actor "Người dùng" as User
+boundary "Giao diện (Web UI)" as UI
+control "AuthController" as Controller
+control "AuthService" as Service
+
+User -> UI : Nhấn nút "Đăng xuất"
+UI -> Controller : logout() [POST /api/v1/auth/logout]\n(kèm Bearer JWT Token)
+Controller -> Service : logoutUser(userId)
+Service --> Controller : Xác nhận đăng xuất thành công (Clear Session/Cookie)
+Controller --> UI : 200 OK ("Đăng xuất thành công")
+
+UI -> UI : Xóa JWT Token khỏi localStorage/Cookie &\nReset Auth State về Khách vãng lai
+deactivate UI
+
+UI --> User : Hiển thị thông báo "Đăng xuất thành công" &\nĐiều hướng về Trang chủ
+
+@enduml

@@ -1,0 +1,48 @@
+@startuml
+
+skinparam monochrome true
+skinparam shadowing false
+skinparam backgroundColor white
+
+skinparam activity {
+    BackgroundColor #FFFFFF
+    BorderColor #000000
+    BorderThickness 1.5
+    FontColor #000000
+    FontSize 13
+    ArrowColor #000000
+}
+
+skinparam activityDiamond {
+    BackgroundColor #FFFFFF
+    BorderColor #000000
+    BorderThickness 1.5
+    FontColor #000000
+}
+
+skinparam partition {
+    BorderColor #000000
+    BackgroundColor #FFFFFF
+    FontColor #000000
+    FontSize 13
+}
+
+start
+
+partition "Người dùng" {
+    :Nhấn vào biểu tượng tài khoản trên Header;
+    :Chọn "Đăng xuất";
+}
+
+partition "Hệ thống" {
+    :Gửi yêu cầu đăng xuất tới Backend API;
+    :Thu hồi phiên làm việc / Xóa cookie xác thực;
+    :Xóa chuỗi JWT Access Token khỏi bộ nhớ (localStorage / Cookie);
+    :Đặt lại trạng thái người dùng (Auth State) về Khách vãng lai;
+    :Hiển thị thông báo "Đăng xuất thành công";
+    :Điều hướng giao diện về Trang chủ;
+}
+
+stop
+
+@enduml
