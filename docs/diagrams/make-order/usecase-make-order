@@ -1,0 +1,50 @@
+@startuml usecase_make_order_phuc
+title Phân hệ Khởi tạo Đơn hàng
+
+' --- Cấu hình giao diện chuẩn đen trắng (Monochrome UML 2.5) ---
+skinparam monochrome true
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam actorStyle stickman
+skinparam roundCorner 10
+
+' --- Khai báo Actor (Bên trái) ---
+actor "Khách hàng\n(Customer)" as Customer
+
+' --- Khung hệ thống (System Boundary) ---
+rectangle "Phân hệ Khởi tạo Đơn hàng" {
+
+    ' Cột bên trái
+    usecase "<b>Đặt đồ uống</b>" as UC_MakeOrder
+    usecase "Chọn hình thức nhận\n(Tại quán / Mang đi)" as UC_OrderType
+
+    ' Cột bên phải (4 Use Case xếp dọc)
+    usecase "Gửi yêu cầu tạo đơn" as UC_Submit
+    usecase "Thêm ghi chú pha chế\n(Add note)" as UC_Note
+    usecase "Áp dụng mã giảm giá\n(Coupon)" as UC_Coupon
+    usecase "Đổi điểm thưởng\ntrừ tiền" as UC_Redeem
+
+    ' --- Khóa vị trí cột bên phải (thẳng đứng từ trên xuống) ---
+    UC_Submit -[hidden]down-> UC_Note
+    UC_Note -[hidden]down-> UC_Coupon
+    UC_Coupon -[hidden]down-> UC_Redeem
+
+    ' --- Khóa vị trí cột bên trái (Đặt đồ uống ở trên, Hình thức nhận ở dưới) ---
+    UC_MakeOrder -[hidden]down-> UC_OrderType
+
+    ' --- Cân bằng vị trí giữa 2 cột ---
+    UC_MakeOrder -[hidden]right-> UC_Note
+    UC_OrderType -[hidden]right-> UC_Redeem
+
+    ' --- Các đường kết nối (Đúng chuẩn cú pháp PlantUML) ---
+    UC_MakeOrder .> UC_Submit : <<include>>
+    UC_Note .left.> UC_MakeOrder : <<extend>>
+    UC_Coupon .left.> UC_MakeOrder : <<extend>>
+    UC_Redeem .left.> UC_MakeOrder : <<extend>>
+    UC_OrderType .up.> UC_MakeOrder : <<extend>>
+}
+
+' Đường nối ngang từ Khách hàng vào Đặt đồ uống
+Customer -right- UC_MakeOrder
+
+@enduml
