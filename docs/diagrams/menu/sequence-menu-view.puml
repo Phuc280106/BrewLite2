@@ -1,0 +1,53 @@
+@startuml sequence-menu-view
+title Sequence Diagram - Luồng 1: Xem thực đơn đồ uống (FR-01)
+autonumber
+hide footbox
+skinparam responseMessageBelowArrow true
+
+actor "Khách hàng" as KH
+boundary "Màn hình Menu\n(Next.js)" as UI
+control "ProductsController\n(NestJS)" as PC
+control "ProductsService\n(NestJS)" as PS
+control "PrismaService\n(Prisma ORM)" as PR
+database "PostgreSQL" as DB
+
+KH -> UI : Mở trang Thực đơn
+activate UI
+UI --> KH : Hiển thị trạng thái Loading
+UI -> PC : GET /api/v1/products
+activate PC
+PC -> PS : findAll(query)
+activate PS
+PS -> PR : product.findMany(...)
+activate PR
+PR -> DB : Truy vấn danh sách Product\n(kèm Category nếu cần)
+activate DB
+
+alt Truy vấn thành công và có sản phẩm
+  DB --> PR : Các bản ghi sản phẩm
+  PR --> PS : Danh sách Product
+  PS --> PC : Danh sách sản phẩm
+  PC --> UI : 200 OK + danh sách sản phẩm
+  UI --> KH : Hiển thị danh mục và danh sách món
+else Truy vấn thành công nhưng danh sách rỗng
+  DB --> PR : Không có bản ghi
+  PR --> PS : Danh sách rỗng []
+  PS --> PC : Danh sách rỗng []
+  PC --> UI : 200 OK + danh sách rỗng
+  UI --> KH : Hiển thị trạng thái Empty
+else Lỗi truy vấn hoặc mất kết nối cơ sở dữ liệu
+  DB --> PR : Lỗi truy vấn/kết nối
+  PR --> PS : Database error
+  PS --> PC : Lỗi xử lý dữ liệu
+  PC --> UI : 500 Internal Server Error
+  UI --> KH : Hiển thị trạng thái Error và nút Thử lại
+end
+
+deactivate DB
+deactivate PR
+deactivate PS
+deactivate PC
+deactivate UI
+@enduml
+
+

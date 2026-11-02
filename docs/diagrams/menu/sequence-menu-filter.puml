@@ -1,0 +1,49 @@
+@startuml sequence-menu-filter
+title Sequence Diagram - Luồng 2: Lọc theo danh mục và tìm kiếm (FR-02)
+autonumber
+hide footbox
+skinparam responseMessageBelowArrow true
+
+actor "Khách hàng" as KH
+boundary "Màn hình Menu\n(Next.js)" as UI
+control "ProductsController\n(NestJS)" as PC
+control "ProductsService\n(NestJS)" as PS
+control "PrismaService\n(Prisma ORM)" as PR
+database "PostgreSQL" as DB
+
+KH -> UI : Chọn danh mục hoặc nhập từ khóa
+activate UI
+UI --> KH : Hiển thị trạng thái Loading
+UI -> PC : GET /api/v1/products?category=...&search=...
+activate PC
+PC -> PC : Validate query parameters\n(QueryProductDto)
+
+alt Tham số truy vấn không hợp lệ
+  PC --> UI : 400 Bad Request
+  UI --> KH : Hiển thị thông báo lỗi
+else Tham số truy vấn hợp lệ
+  PC -> PS : findAll(query)
+  activate PS
+  PS -> PR : product.findMany(where: điều kiện lọc)
+  activate PR
+  PR -> DB : Truy vấn Product theo danh mục\nvà từ khóa tìm kiếm
+  activate DB
+  DB --> PR : Các bản ghi phù hợp
+  deactivate DB
+  PR --> PS : Danh sách Product
+  deactivate PR
+  PS --> PC : Kết quả lọc/tìm kiếm
+  deactivate PS
+
+  alt Có sản phẩm phù hợp
+    PC --> UI : 200 OK + danh sách sản phẩm
+    UI --> KH : Cập nhật danh sách món
+  else Không có sản phẩm phù hợp
+    PC --> UI : 200 OK + danh sách rỗng []
+    UI --> KH : Hiển thị trạng thái Empty
+  end
+end
+
+deactivate PC
+deactivate UI
+@enduml

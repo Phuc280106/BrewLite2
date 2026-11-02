@@ -1,0 +1,44 @@
+@startuml sequence-menu-detail
+title Sequence Diagram - Luồng 3: Xem chi tiết món (FR-01)
+autonumber
+hide footbox
+skinparam responseMessageBelowArrow true
+
+actor "Khách hàng" as KH
+boundary "Màn hình Menu\n(Next.js)" as UI
+control "ProductsController\n(NestJS)" as PC
+control "ProductsService\n(NestJS)" as PS
+control "PrismaService\n(Prisma ORM)" as PR
+database "PostgreSQL" as DB
+
+KH -> UI : Chọn một món trong danh sách
+activate UI
+UI -> PC : GET /api/v1/products/:id
+activate PC
+PC -> PS : findOne(id)
+activate PS
+PS -> PR : product.findUnique({ where: { id } })
+activate PR
+PR -> DB : Truy vấn Product theo id
+activate DB
+
+alt Tìm thấy sản phẩm
+  DB --> PR : Bản ghi sản phẩm
+  PR --> PS : Product
+  PS --> PC : Thông tin chi tiết sản phẩm
+  PC --> UI : 200 OK + chi tiết sản phẩm
+  UI --> KH : Hiển thị chi tiết món
+else Không tìm thấy sản phẩm
+  DB --> PR : Không có bản ghi
+  PR --> PS : null
+  PS --> PC : NotFoundException
+  PC --> UI : 404 Not Found
+  UI --> KH : Thông báo không tìm thấy món
+end
+
+deactivate DB
+deactivate PR
+deactivate PS
+deactivate PC
+deactivate UI
+@enduml

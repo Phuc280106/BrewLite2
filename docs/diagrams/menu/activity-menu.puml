@@ -1,42 +1,38 @@
 @startuml activity-menu
-title Sơ đồ activity chức năng Hiển thị menu & Lọc theo danh mục (FR-01, FR-02)
-
-' Cấu hình để hình thoi gộp nhánh và rẽ nhánh chuẩn UML (trống bên trong)
 skinparam ConditionEndStyle hline
+title Sơ đồ Activity: Hiển thị menu & Lọc theo danh mục (FR-01, FR-02)
 
 |Khách hàng|
 start
-:Mở trang Menu;
+:Mở trang Thực đơn (Menu);
 
+|Hệ thống|
 repeat
-  |Hệ thống|
-  :Hiển thị trạng thái Loading (Skeleton);
-  :Gửi GET /api/v1/products\n(kèm category, search nếu có);
-  :API kiểm tra tham số\nvà truy vấn cơ sở dữ liệu;
+  :Hiển thị trạng thái đang tải (Skeleton);
+  :Tiếp nhận yêu cầu lấy danh sách món\n(kèm điều kiện lọc danh mục, từ khóa nếu có);
+  :Kiểm tra tính hợp lệ của điều kiện lọc\nvà truy vấn danh sách món ăn;
 
-  if () then (Yêu cầu thành công)
-    if () then (Có món phù hợp)
-      :Hiển thị thanh danh mục\nvà danh sách món;
-    else (Không có món phù hợp)
-      :Hiển thị trạng thái Empty;
-    endif
-  else (Lỗi tham số / lỗi server)
-    :Hiển thị trạng thái Error\nkèm nút "Thử lại";
+  if () then (Có món ăn phù hợp)
+    :Hiển thị thanh danh mục\nvà danh sách món ăn;
+  elseif () then (Không có món phù hợp)
+    :Hiển thị trạng thái danh sách trống (Empty);
+  else (Tham số không hợp lệ / Lỗi hệ thống)
+    :Hiển thị thông báo lỗi (Error)\nkèm nút "Thử lại";
   endif
 
-  |Khách hàng|
+|Khách hàng|
   :Chọn thao tác tiếp theo;
 repeat while () is (Lọc danh mục / Tìm kiếm / Thử lại) not (Không)
 
 if () then (Chọn xem chi tiết một món)
   |Hệ thống|
-  :Gửi GET /api/v1/products/:id;
-  if () then (Tìm thấy món)
-    :Hiển thị chi tiết món;
-  else (Không tìm thấy - 404)
-    :Báo "Không tìm thấy món"\nvà quay về menu;
+  :Truy vấn thông tin chi tiết món ăn đã chọn;
+  if () then (Tìm thấy thông tin món)
+    :Hiển thị thông tin chi tiết món ăn;
+  else (Món không tồn tại)
+    :Thông báo "Không tìm thấy món"\nvà điều hướng quay về trang Thực đơn;
   endif
-else (Không xem chi tiết)
+else (Kết thúc duyệt thực đơn)
 endif
 
 |Khách hàng|
