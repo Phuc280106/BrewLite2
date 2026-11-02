@@ -26,9 +26,9 @@ control "AuthService" as Service
 control "UserRepository" as Repo
 database "Cơ sở dữ liệu" as DB
 
-User -> RegisterUI : Nhập email, mật khẩu (>= 8 ký tự)\nvà nhấn "Đăng ký"
-RegisterUI -> Controller : register(email, password)
-Controller -> Service : registerUser(email, password)
+User -> RegisterUI : Nhập họ tên, email và mật khẩu (>= 8 ký tự)\nvà nhấn "Đăng ký"
+RegisterUI -> Controller : register(fullname, email, password)
+Controller -> Service : registerUser(fullname, email, password)
 Service -> Repo : existsByEmail(email)
 Repo -> DB : SELECT * FROM Users WHERE email = ?
 DB --> Repo : Kết quả truy vấn
@@ -37,8 +37,8 @@ Repo --> Service : boolean (Tồn tại / Chưa tồn tại)
 alt Email chưa tồn tại và mật khẩu hợp lệ (AC 1 - Đăng ký hợp lệ)
     Service -> Service : hashPasswordBCrypt(password)
     deactivate Service
-    Service -> Repo : saveUser(email, hashedPassword)
-    Repo -> DB : INSERT INTO Users(email, password_hash)
+    Service -> Repo : saveUser(fullname, email, hashedPassword)
+    Repo -> DB : INSERT INTO Users(fullname, email, password_hash)
     DB --> Repo : Lưu thành công
     Repo --> Service : User entity
     Service --> Controller : Kết quả đăng ký thành công

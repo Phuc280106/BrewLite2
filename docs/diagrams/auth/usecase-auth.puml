@@ -23,13 +23,14 @@ rectangle "Hệ thống Định danh & Xác thực Thành viên" {
     ' --- Nhóm Use Case chính (ở trung tâm) ---
     usecase "Đăng ký tài khoản" as UC_Register
     usecase "Đăng nhập hệ thống" as UC_Login
+    usecase "Đăng xuất" as UC_Logout
 
 }
 
 ' --- Quan hệ giữa Actor và các Use Case chính ---
 User -- UC_Register
 User -- UC_Login
-
+User -- UC_Logout
 
 
 @enduml
