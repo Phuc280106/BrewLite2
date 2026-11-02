@@ -1,0 +1,45 @@
+@startuml
+|Khách hàng|
+start
+:clickOrderHistory();
+
+|Frontend (Next.js)|
+:fetchMyOrders(jwtToken);
+
+|Backend API (NestJS)|
+:authGuard.canActivate(context);
+:jwtService.verify(jwtToken);
+if (isValid?) then (true)
+  :orderService.findByUserId(userId);
+  :orderRepository.find({ where: { userId } });
+  :return HttpResponse.OK(Order[]);
+else (false)
+  :return HttpResponse.Unauthorized();
+  |Frontend (Next.js)|
+  :router.push('/login');
+  |Khách hàng|
+  stop
+endif
+
+|Frontend (Next.js)|
+:renderComponent(<OrderList orders={Order[]} />);
+
+|Khách hàng|
+:clickOrderDetail(orderId);
+
+|Frontend (Next.js)|
+:fetchOrderDetails(orderId);
+
+|Backend API (NestJS)|
+:orderService.findOneWithDetails(orderId);
+:orderRepository.findOne({ relations: ['orderDetails'], where: { id: orderId } });
+:return HttpResponse.OK(OrderDto);
+
+|Frontend (Next.js)|
+:renderComponent(<Receipt order={OrderDto} />);
+:mount(<OrderStatusStepper currentStatus={OrderDto.status} />);
+
+|Khách hàng|
+:viewReceiptAndStatus();
+stop
+@enduml
