@@ -37,19 +37,19 @@ partition "Người dùng" {
 partition "Hệ thống" {
     :Kiểm tra định dạng mật khẩu (>= 8 ký tự);
     
-    if (Mật khẩu hợp lệ?) then ([Hợp lệ])
+    if () then ([Mật khẩu hợp lệ])
         :Kiểm tra trùng lặp email trong hệ thống;
         
-        if (Email đã tồn tại?) then ([Có - Trùng lặp])
+        if () then ([Email đã tồn tại])
             :Hiển thị thông báo lỗi:\n"Email này đã được sử dụng";
             stop
-        else ([Không - Chưa tồn tại])
+        else ([Email chưa tồn tại])
             :Băm mật khẩu bằng BCrypt;
             :Tạo tài khoản mới;
             :Thông báo đăng ký thành công;
             :Chuyển hướng tới trang "Đăng nhập";
         endif
-    else ([Không hợp lệ])
+    else ([Mật khẩu không hợp lệ])
         :Hiển thị thông báo lỗi mật khẩu không hợp lệ;
         stop
     endif
