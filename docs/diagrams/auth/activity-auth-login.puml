@@ -38,7 +38,8 @@ partition "Người dùng" {
 partition "Hệ thống" {
     :Đối chiếu email và mật khẩu;
     
-    if (Thông tin đăng nhập chính xác?) then ([Đúng])
+    
+    if () then ([Thông tin chính xác])
         :Cấp phát JWT Access Token\n(có thời hạn hiệu lực);
         :Chuyển hướng về Trang chủ;
     else ([Sai email hoặc mật khẩu])
@@ -56,7 +57,8 @@ partition "Người dùng" {
 partition "Hệ thống" {
     :Kiểm tra sự tồn tại, chữ ký và thời hạn của JWT;
     
-    if (Có JWT hợp lệ và còn hạn?) then ([Hợp lệ])
+    
+    if () then ([JWT hợp lệ và còn hạn])
         :Cho phép truy cập tính năng thành viên;
     else ([Không có JWT / Sai chữ ký / Hết hạn])
         :Từ chối truy cập (401 Unauthorized);
