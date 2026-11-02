@@ -1,0 +1,73 @@
+@startuml
+title Sơ đồ Sequence - Quản lý Giỏ hàng & Khuyến mãi (FR-03, FR-10)
+
+skinparam backgroundColor white
+skinparam sequence {
+    ArrowColor #2C3E50
+    LifeLineBorderColor #2C3E50
+    LifeLineBorderThickness 1.5
+    LifeLineBackgroundColor #EBF5FB
+    ParticipantBorderColor #2980B9
+    ParticipantBackgroundColor #EBF5FB
+    ParticipantFontColor #1B4F72
+    ActorBorderColor #2980B9
+    ActorBackgroundColor #EBF5FB
+    BoxBorderColor #2C3E50
+    BoxBackgroundColor #FFFFFF
+    MessageAlign center
+    ResponseMessageBelowArrow true
+}
+
+actor "Khách hàng" as User
+boundary "Màn hình Giỏ hàng\n(cart/page.tsx)" as CartUI
+control "CartStore\n(Zustand Store)" as Store
+database "LocalStorage\n(Browser Storage)" as Storage
+boundary "Header Badge\n(Navbar)" as Badge
+
+User -> CartUI : Xem giỏ hàng (/cart) hoặc thêm món mới
+activate CartUI
+CartUI -> Store : getCartState() / addItem(item)
+activate Store
+Store -> Storage : Đồng bộ trạng thái ("brewlite-cart")
+activate Storage
+Storage --> Store : Dữ liệu items, Subtotal, GrandTotal
+deactivate Storage
+Store --> Badge : Cập nhật tổng số lượng món (AC-03.2)
+Store --> CartUI : Trả về danh sách món & tổng tiền
+deactivate Store
+CartUI --> User : Hiển thị danh sách món (tách dòng theo tùy biến - AC-03.3)
+deactivate CartUI
+
+alt Cập nhật số lượng hoặc Xóa món (AC-03.4)
+    User -> CartUI : Nhấn Tăng (+) / Giảm (-) hoặc Xóa món
+    activate CartUI
+    CartUI -> Store : updateQuantity(itemId, qty) / removeItem(itemId)
+    activate Store
+    Store -> Store : Tính lại ItemTotal, Subtotal & GrandTotal
+    Store -> Storage : setItem("brewlite-cart", JSON)
+    Store --> Badge : Cập nhật số lượng hiển thị
+    Store --> CartUI : Trạng thái giỏ hàng mới
+    deactivate Store
+    CartUI --> User : Cập nhật số lượng & tổng tiền tức thì
+    deactivate CartUI
+
+else Đổi điểm thưởng giảm giá trực tiếp (FR-10)
+    User -> CartUI : Nhập số điểm muốn đổi & nhấn "Áp dụng"
+    activate CartUI
+    CartUI -> Store : applyLoyaltyPoints(redeemPoints, userPoints)
+    activate Store
+
+    alt Số điểm hợp lệ (0 <= redeemPoints <= userPoints) (AC-10.3)
+        Store -> Store : Tính Discount = redeemPoints * 1.000 VNĐ\nvà GrandTotal = Subtotal - Discount
+        Store -> Storage : Lưu trạng thái chiết khấu
+        Store --> CartUI : Áp dụng giảm giá thành công
+        CartUI --> User : Hiển thị mức giảm "-X.000 đ" & Tổng thanh toán
+    else Số điểm vượt quá số dư hiện có (AC-10.4)
+        Store --> CartUI : Từ chối áp dụng (vượt số dư)
+        CartUI --> User : Hiển thị lỗi "Số điểm đổi vượt quá số dư hiện có"
+    end
+    deactivate Store
+    deactivate CartUI
+end
+
+@enduml
