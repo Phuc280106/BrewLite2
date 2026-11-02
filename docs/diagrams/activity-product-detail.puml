@@ -1,0 +1,32 @@
+@startuml
+skinparam defaultTextAlignment center
+
+title Sơ đồ activity chức năng chọn và tùy biến món ăn
+
+|Khách hàng|
+start
+:Chọn món ăn;
+:Tùy chỉnh món ăn;
+
+|Hệ thống|
+:Cập nhật giá món ăn;
+
+|Khách hàng|
+if () then (Đặt món)
+  :Đặt món ăn;
+  |Hệ thống|
+  :Thêm món ăn vào giỏ hàng;
+    :Hiển thị thông báo chọn món thành công;
+    :Cập nhật số lượng hiển thị trên giỏ hàng;
+    :Quay về menu;
+  |Khách hàng|
+    stop
+else (Không đặt món)
+  :Đóng hộp thoại chọn món;
+  |Hệ thống|
+    :Quay về menu;
+|Khách hàng|
+    stop
+endif
+
+@enduml

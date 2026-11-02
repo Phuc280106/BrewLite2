@@ -1,0 +1,14 @@
+@startuml
+
+actor "Khách hàng" as KhachHang
+
+title Sơ đồ use case chức năng chọn và tùy biến món ăn
+    usecase "Chọn món ăn" as ChonMon
+    usecase "Tùy chỉnh món ăn" as TuyChinh
+    
+
+    KhachHang --> ChonMon
+    TuyChinh ..> ChonMon : <<extend>>
+    
+
+@enduml

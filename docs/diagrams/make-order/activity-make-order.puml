@@ -1,0 +1,95 @@
+@startuml activity_make_order
+title Sơ đồ Hoạt động (Activity Diagram) có Fork & Join - Use Case: Make Order
+
+' --- Cấu hình giao diện chuẩn đen trắng (Monochrome UML 2.5) ---
+skinparam monochrome true
+skinparam shadowing false
+skinparam roundCorner 10
+skinparam defaultFontName Arial
+
+|#White|Khách hàng|
+start
+:Nhấn nút [Tiến hành đặt hàng] tại Giỏ hàng;
+
+|#White|Giao diện ứng dụng (Frontend)|
+:Hiển thị màn hình Xác nhận đơn hàng\n(Danh sách món, tổng tiền tạm tính);
+
+|Khách hàng|
+:Chọn hình thức nhận đồ uống\n(Tại quán / Mang đi);
+
+' --- Tùy chọn 1: Áp dụng mã giảm giá ---
+if (Có áp dụng mã giảm giá?) then (Có)
+  :Nhập mã Voucher và bấm [Áp dụng];
+  |Giao diện ứng dụng (Frontend)|
+  if (Mã hợp lệ và còn hạn?) then (Hợp lệ)
+    :Trừ tiền chiết khấu vào tổng bill;
+  else (Không hợp lệ)
+    :Hiển thị cảnh báo mã không hợp lệ;
+  endif
+else (Không)
+endif
+
+' --- Tùy chọn 2: Đổi điểm thưởng tích lũy ---
+|Khách hàng|
+if (Có đổi điểm thưởng tích lũy?) then (Có)
+  :Chọn số điểm muốn đổi;
+  |Giao diện ứng dụng (Frontend)|
+  if (Đủ số dư điểm trong tài khoản?) then (Đủ số dư)
+    :Quy đổi điểm giảm trừ trực tiếp vào tổng bill;
+  else (Không đủ)
+    :Hiển thị cảnh báo số dư điểm không đủ;
+  endif
+else (Không)
+endif
+
+' --- Tùy chọn 3: Thêm ghi chú pha chế ---
+|Khách hàng|
+if (Có thêm ghi chú pha chế?) then (Có)
+  :Nhập yêu cầu riêng (ít đá, ít đường...);
+else (Không)
+endif
+
+:Kiểm tra thông tin và nhấn nút [Đặt đồ uống];
+
+|Giao diện ứng dụng (Frontend)|
+' ================= FORK 1: XỬ LÝ SONG SONG KHI BẤM NÚT =================
+fork
+  :Khóa tạm thời nút bấm & hiển thị Loading Spinner\n(Chống Double Submit từ giao diện);
+fork again
+  :Gửi yêu cầu tạo đơn hàng lên máy chủ;
+  |#White|Máy chủ & Cơ sở dữ liệu (Backend)|
+  :Mở giao dịch (Database Transaction);
+  :Kiểm tra số lượng tồn kho nguyên liệu các món;
+end fork
+
+' --- Rẽ nhánh kiểm tra tồn kho ---
+|Máy chủ & Cơ sở dữ liệu (Backend)|
+if (Đủ nguyên liệu tồn kho phục vụ?) then (Không đủ / Hết hàng)
+  :Hủy giao dịch (Rollback Transaction);
+  |Giao diện ứng dụng (Frontend)|
+  :Mở khóa lại nút đặt đơn;
+  :Hiển thị thông báo:\n"Món đã hết nguyên liệu, vui lòng chọn món khác";
+  stop
+else (Đủ nguyên liệu)
+  |Máy chủ & Cơ sở dữ liệu (Backend)|
+  :Khóa dòng và tạm giữ số lượng tồn kho nguyên liệu;
+  :Tạo bản ghi đơn hàng mới ở trạng thái Chờ thanh toán (PENDING);
+  :Xác nhận giao dịch thành công (Commit Transaction);
+
+  ' ================= FORK 2: XỬ LÝ SONG SONG SAU KHI TẠO ĐƠN =================
+  fork
+    |Giao diện ứng dụng (Frontend)|
+    :Làm sạch giỏ hàng tạm thời;
+    :Tự động điều hướng sang màn hình Thanh toán;
+    |Khách hàng|
+    :Xem màn hình Thanh toán đơn hàng;
+  fork again
+    |Máy chủ & Cơ sở dữ liệu (Backend)|
+    :Ghi log phiên giao dịch vào hệ thống kiểm toán;
+    :Gửi thông báo đơn hàng mới đến hệ thống quầy;
+  end fork
+
+  stop
+endif
+
+@enduml
