@@ -1,0 +1,41 @@
+@startuml
+title S?? ????? Sequence - H???y ????n & ho??n kho khi qu?? 15 ph??t ch??a thanh to??n (FR-06)
+
+skinparam backgroundColor white
+skinparam sequence {
+    ArrowColor #2C3E50
+    LifeLineBorderColor #2C3E50
+    LifeLineBorderThickness 1.5
+    LifeLineBackgroundColor #EBF5FB
+    ParticipantBorderColor #2980B9
+    ParticipantBackgroundColor #EBF5FB
+    ParticipantFontColor #1B4F72
+    MessageAlign center
+    ResponseMessageBelowArrow true
+}
+
+participant "B??? l???p l???ch\n(@Cron / Scheduler)" as Scheduler
+control "PaymentsService\n/ OrdersService" as Service
+database "C?? s??? d??? li???u\n(Order, Ingredient)" as DB
+
+loop ?????nh k??? (v?? d??? m???i ph??t)
+    Scheduler -> Service : cancelExpiredOrders()
+    activate Service
+    Service -> DB : SELECT Order WHERE status = PENDING\nAND createdAt < now() - 15 ph??t
+    activate DB
+    DB --> Service : Danh s??ch ????n qu?? h???n
+    deactivate DB
+
+    loop V???i m???i ????n qu?? h???n
+        Service -> DB : BEGIN TRANSACTION
+        activate DB
+        Service -> DB : UPDATE Ingredient SET stock = stock + s??? l?????ng ???? gi???
+        Service -> DB : UPDATE Order SET status = CANCELLED
+        Service -> DB : COMMIT
+        DB --> Service : ???? ho??n kho & h???y ????n
+        deactivate DB
+    end
+    deactivate Service
+end
+
+@enduml
