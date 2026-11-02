@@ -1,0 +1,62 @@
+@startuml
+actor "Khách hàng" as Customer
+participant "Frontend\n(Next.js)" as UI
+participant "OrderController\n(NestJS)" as Controller
+participant "OrderService" as Service
+participant "OrderRepository" as Repo
+database "PostgreSQL" as DB
+
+Customer -> UI : clickOrderHistory()
+activate UI
+UI -> Controller : HTTP GET /orders/my-orders\nfetchMyOrders(req)
+activate Controller
+
+Controller -> Service : getOrdersByUserId(userId)
+activate Service
+
+Service -> Repo : find({ where: { userId } })
+activate Repo
+Repo -> DB : executeQuery("SELECT * FROM orders WHERE user_id = ...")
+activate DB
+DB --> Repo : ResultSet
+deactivate DB
+Repo --> Service : Order[]
+deactivate Repo
+
+Service --> Controller : OrderDto[]
+deactivate Service
+
+Controller --> UI : 200 OK (OrderDto[])
+deactivate Controller
+UI -> UI : render(<OrderList orders={OrderDto[]} />)
+UI --> Customer : displayOrderHistory()
+deactivate UI
+
+Customer -> UI : clickOrderDetail(orderId)
+activate UI
+UI -> Controller : HTTP GET /orders/{id}\nfetchOrderDetails(orderId)
+activate Controller
+
+Controller -> Service : getOrderDetails(orderId)
+activate Service
+
+Service -> Repo : findOne({ relations: ['details'], where: { id: orderId } })
+activate Repo
+Repo -> DB : executeQuery("SELECT * FROM orders JOIN order_details ...")
+activate DB
+DB --> Repo : ResultSet
+deactivate DB
+Repo --> Service : Order entity
+deactivate Repo
+
+Service --> Controller : OrderDetailDto
+deactivate Service
+
+Controller --> UI : 200 OK (OrderDetailDto)
+deactivate Controller
+
+UI -> UI : render(<Receipt data={OrderDetailDto} />)
+UI -> UI : mount(<OrderStatusStepper status={OrderDetailDto.status} />)
+UI --> Customer : displayReceiptAndProgress()
+deactivate UI
+@enduml
