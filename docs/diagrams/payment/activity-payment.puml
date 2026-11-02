@@ -4,9 +4,9 @@ title Sơ đồ activity chức năng Thanh toán mô phỏng\n& Chống trùng 
 skinparam defaultFontSize 11
 skinparam titleFontSize 12
 skinparam Padding 1
+skinparam ConditionStyle diamond
 skinparam ConditionEndStyle diamond
 skinparam ActivityPadding 4
-skinparam ActivityDiamondFontSize 10
 skinparam ActivityBackgroundColor #FFFFFF
 skinparam ActivityBorderColor #2C3E50
 skinparam ArrowColor #2C3E50
@@ -28,16 +28,19 @@ start
 |Hệ thống|
 :Khóa nút, gửi POST /payments\nkèm JWT + key;
 
-if (JWT hợp lệ\nvà có key?) then (không)
+-> JWT hợp lệ\nvà có key?;
+if () then (không)
   :Trả lỗi 401 /\nyêu cầu không hợp lệ;
   stop
 else (có)
 endif
 
-if (Key đã xử lý\ntrong 24 giờ?) then (có)
+-> Key đã xử lý\ntrong 24 giờ?;
+if () then (có)
   :Trả kết quả cũ\n(200 OK, không\ntrừ tiền lần 2);
 else (chưa)
-  if (Đơn hợp lệ\nvà PENDING?) then (không)
+  -> Đơn hợp lệ\nvà PENDING?;
+  if () then (không)
     :Từ chối,\nđơn không hợp lệ;
     stop
   else (có)
@@ -47,7 +50,8 @@ else (chưa)
   :Xử lý giao dịch\nmô phỏng;
 
   |Hệ thống|
-  if (Giao dịch\nthành công?) then (thành công)
+  -> Giao dịch\nthành công?;
+  if () then (thành công)
     :Tạo Payment SUCCESS,\nđơn PENDING → PREPARING,\ntrả 200 OK;
   else (bị từ chối)
     :Tạo Payment FAILED,\ngiữ đơn PENDING, trả lỗi;
