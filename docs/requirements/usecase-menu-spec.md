@@ -67,13 +67,3 @@
   1. Quá trình gọi API `GET /api/v1/products` hoặc `GET /api/v1/products/:id` thất bại (lỗi mạng, máy chủ trả về mã lỗi `500 Internal Server Error` hoặc `404 Not Found` khi không tìm thấy ID món).
   2. **Hệ thống (Frontend)** bắt lỗi và hiển thị component `ErrorState` (từ `src/components/UIStates.tsx`) thông báo lỗi thân thiện kèm nút *"Thử lại" (Retry)* để người dùng tải lại dữ liệu.
 
----
-
-## 4. Yêu cầu phi chức năng & Tiêu chí nghiệm thu (Non-functional Requirements & Acceptance Criteria)
-1. **Hiệu năng (Performance):** Thời gian phản hồi của các API `GET /api/v1/products` và `GET /api/v1/products/:id` phải đạt **< 300ms**.
-2. **Trải nghiệm người dùng (UI/UX):** 
-   * Giao diện thiết kế theo chuẩn **Mobile-first / Responsive**, hiển thị mượt mà trên cả điện thoại và máy tính.
-   * Phải xử lý trọn vẹn và mượt mà 3 trạng thái giao diện: **Loading** (`Skeleton`), **Empty** (`EmptyState`), và **Error** (`ErrorState`).
-3. **Dữ liệu kiểm thử (Seed Data & E2E Test):** 
-   * Hiển thị tối thiểu **8 – 10 món thực tế** kèm danh mục và topping sau khi chạy script khởi tạo dữ liệu (Database Seed Script).
-   * Vượt qua kịch bản kiểm thử tự động End-to-End (Playwright) cho luồng duyệt Menu và Xem chi tiết sản phẩm.
