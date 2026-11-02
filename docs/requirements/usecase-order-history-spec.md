@@ -1,0 +1,16 @@
+# TÀI LIỆU ĐẶC TẢ CHI TIẾT USE CASE (TASK 1.3)
+## Phân hệ: Tra cứu & Quản lý Đơn hàng (Order Management)
+
+### BẢNG ĐẶC TẢ USE CASE
+
+| Thuộc tính | Nội dung chi tiết |
+| :--- | :--- |
+| **Tên use-case:** | **Lịch sử đơn & Theo dõi trạng thái (View Order History & Track Status)** |
+| **Actor** | **Khách hàng (Customer)** |
+| **Trigger** | Khách hàng nhấn chọn mục **`[ Lịch sử đơn hàng ]`** từ menu ứng dụng. |
+| **Tiền điều kiện** | 1. Ứng dụng BrewLite đang hoạt động và kết nối thành công đến API Backend.<br>2. Khách hàng đã đăng nhập thành công và sở hữu token JWT hợp lệ. |
+| **Hậu điều kiện** | 1. Hệ thống hiển thị chính xác danh sách các đơn đặt hàng của khách hàng (sắp xếp theo thời gian mới nhất).<br>2. Khách hàng xem được chi tiết biên nhận và tiến trình xử lý thực tế của đơn hàng thông qua `OrderStatusStepper`. |
+| **Luồng sự kiện chính** | 1. Tại giao diện chính (Mobile/Web), khách hàng nhấn chọn tính năng `[ Lịch sử đơn hàng ]`.<br>2. Hệ thống (Frontend) gọi API `GET /orders/my-orders` gửi kèm JWT Token để xác thực.<br>3. Hệ thống (Backend) xác thực Token hợp lệ và truy vấn danh sách đơn hàng từ cơ sở dữ liệu (PostgreSQL) theo `user_id`.<br>4. Hệ thống trả về dữ liệu danh sách đơn hàng.<br>5. Frontend hiển thị danh sách đơn hàng (hiển thị tóm tắt: mã đơn, ngày đặt, tổng tiền, trạng thái hiện tại).<br>6. Khách hàng nhấn chọn một đơn hàng cụ thể từ danh sách để xem chi tiết.<br>7. Hệ thống gọi API `GET /orders/{id}` để lấy chi tiết biên nhận và trạng thái.<br>8. Frontend nhận dữ liệu và render màn hình Biên nhận thành công.<br>9. Frontend khởi tạo và hiển thị thanh tiến trình `OrderStatusStepper` phản ánh trạng thái chuẩn xác của đơn hàng (ví dụ: Chờ xác nhận -> Đang pha chế -> Đang giao -> Hoàn thành). |
+| **Luồng thay thế (Luồng phụ)** | **5a. Không có đơn hàng nào:**<br>- *Tại bước 5:* Hệ thống nhận về danh sách rỗng.<br>- *Xử lý:* Giao diện hiển thị thông báo *"Bạn chưa có đơn hàng nào"* kèm hình ảnh minh họa (empty state) và nút *"Khám phá Menu"* để điều hướng khách hàng về lại trang đặt hàng. |
+| **Luồng ngoại lệ** | **E1. Chưa đăng nhập hoặc Token hết hạn (Unauthorized):**<br>- *Tại bước 3:* Backend từ chối truy cập và trả về mã lỗi 401.<br>- *Xử lý:* Hệ thống hiển thị thông báo *"Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại"* và tự động điều hướng khách hàng về trang Đăng nhập.<br><br>**E2. Đơn hàng không tồn tại (Not Found):**<br>- *Tại bước 7:* Khách hàng xem chi tiết nhưng API trả về lỗi 404 (ID sai hoặc đơn bị xóa).<br>- *Xử lý:* Hệ thống báo lỗi *"Không tìm thấy thông tin đơn hàng này"* và hiển thị nút quay lại danh sách.<br><br>**E3. Mất kết nối mạng:**<br>- *Tại bước 2 hoặc bước 7:* Không thể gọi API.<br>- *Xử lý:* Giao diện hiển thị thông báo *"Kết nối bị gián đoạn, vui lòng kiểm tra lại mạng"* kèm nút thử lại (`Retry`). |
+| **Mã yêu cầu tương ứng** | • **`FR-07`**: Biên nhận đơn thành công.<br>• **`FR-08`**: Xem lịch sử đơn (`/orders/my-orders`) và thanh tiến trình (`OrderStatusStepper`).<br>• **`FR-04`**: Đăng nhập và xác thực phân quyền qua JWT (Tiền điều kiện). |
