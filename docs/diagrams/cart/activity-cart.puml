@@ -1,0 +1,91 @@
+@startuml
+title Sơ đồ activity chức năng Quản lý Giỏ hàng & Khuyến mãi (FR-03, FR-10)
+
+skinparam monochrome true
+skinparam shadowing false
+skinparam backgroundColor white
+
+skinparam activity {
+    BackgroundColor #FFFFFF
+    BorderColor #000000
+    BorderThickness 1.5
+    FontColor #000000
+    FontSize 13
+    ArrowColor #000000
+}
+
+skinparam activityDiamond {
+    BackgroundColor #FFFFFF
+    BorderColor #000000
+    BorderThickness 1.5
+    FontColor #000000
+}
+
+skinparam partition {
+    BorderColor #000000
+    BackgroundColor #FFFFFF
+    FontColor #000000
+    FontSize 13
+}
+
+start
+
+' --- GIAI ĐOẠN 1: XEM GIỎ HÀNG & ĐỒNG BỘ LOCALSTORAGE ---
+partition "Khách hàng" {
+    :Truy cập màn hình Giỏ hàng (/cart);
+}
+
+partition "Hệ thống" {
+    :Đọc trạng thái giỏ hàng từ Zustand Store\n(khôi phục từ LocalStorage khi tải lại trang);
+
+    if () then ([Giỏ hàng có món])
+        :Hiển thị danh sách món, tùy chọn Size/Topping\nvà tổng tiền tạm tính (Subtotal);
+    else ([Giỏ hàng trống])
+        :Hiển thị màn hình giỏ hàng trống (EmptyCart)\nkèm nút "Khám phá Menu ngay";
+        stop
+    endif
+}
+
+' --- GIAI ĐOẠN 2: CẬP NHẬT SỐ LƯỢNG / XÓA MÓN ---
+partition "Khách hàng" {
+    :Tăng (+), Giảm (-) số lượng hoặc nhấn Xóa món;
+}
+
+partition "Hệ thống" {
+    if () then ([Tăng SL hoặc Giảm khi SL > 1])
+        :Cập nhật số lượng món mới;
+    else ([Giảm khi SL = 1 hoặc nhấn Xóa])
+        :Xác nhận xóa & loại bỏ món khỏi giỏ hàng;
+    endif
+    :Tính lại tổng tiền món & cập nhật LocalStorage;
+    :Cập nhật số lượng trên Badge Header;
+}
+
+' --- GIAI ĐOẠN 3: ĐỔI ĐIỂM THƯỞNG GIẢM GIÁ (FR-10) ---
+partition "Khách hàng" {
+    :Nhập số điểm thưởng muốn đổi\nvà nhấn "Áp dụng";
+}
+
+partition "Hệ thống" {
+    :Kiểm tra số dư điểm thưởng hiện có;
+
+    if () then ([0 <= Điểm đổi <= Số dư điểm])
+        :Giảm trừ tiền trực tiếp (1 điểm = 1.000 VNĐ);
+        :Cập nhật tổng thanh toán (GrandTotal);
+    else ([Vượt quá số dư điểm])
+        :Từ chối áp dụng & hiển thị thông báo lỗi:\n"Số điểm đổi vượt quá số dư hiện có";
+    endif
+}
+
+' --- GIAI ĐOẠN 4: TIẾN HÀNH ĐẶT HÀNG ---
+partition "Khách hàng" {
+    :Nhấn "Tiến hành đặt hàng";
+}
+
+partition "Hệ thống" {
+    :Chuyển hướng sang trang Xác nhận & Đặt hàng (/checkout);
+}
+
+stop
+
+@enduml

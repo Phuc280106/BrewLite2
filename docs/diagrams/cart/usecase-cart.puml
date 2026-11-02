@@ -1,0 +1,49 @@
+@startuml
+left to right direction
+
+skinparam usecase {
+    BackgroundColor #FFFFFF
+    BorderColor #2C3E50
+    BorderThickness 1.5
+    FontSize 13
+}
+skinparam actor {
+    BackgroundColor #EBF5FB
+    BorderColor #2980B9
+}
+skinparam rectangle {
+    BorderColor #2C3E50
+}
+skinparam ArrowColor #2C3E50
+
+title Sơ đồ use case chức năng Quản lý Giỏ hàng & Khuyến mãi (FR-03, FR-10)
+
+actor "Khách hàng" as Customer
+
+rectangle "Phân hệ Giỏ hàng & Tùy biến (Cart & Customization Module)" {
+    usecase "Quản lý giỏ hàng" as UC_ManageCart
+
+    usecase "Xem danh sách món\ntrong giỏ hàng" as UC_View
+    usecase "Thêm món vào giỏ\n(kèm Size / Topping)" as UC_Add
+    usecase "Tăng / giảm số lượng món" as UC_UpdateQty
+    usecase "Xóa món khỏi giỏ hàng" as UC_Remove
+
+    usecase "Tính tổng tiền tự động\n(Subtotal & GrandTotal)" as UC_CalcTotal
+    usecase "Đồng bộ trạng thái\n(Zustand & LocalStorage)" as UC_Sync
+    usecase "Đổi điểm thưởng giảm giá\n(1 điểm = 1.000 VNĐ)" as UC_Redeem
+}
+
+Customer -- UC_ManageCart
+Customer -- UC_Add
+
+UC_ManageCart ..> UC_View : <<include>>
+UC_ManageCart ..> UC_CalcTotal : <<include>>
+UC_ManageCart ..> UC_Sync : <<include>>
+UC_Add ..> UC_CalcTotal : <<include>>
+UC_Add ..> UC_Sync : <<include>>
+
+UC_UpdateQty .up.> UC_ManageCart : <<extend>>\n[thay đổi số lượng]
+UC_Remove .up.> UC_ManageCart : <<extend>>\n[xóa món / giảm từ 1 về 0]
+UC_Redeem .left.> UC_ManageCart : <<extend>>\n[đã đăng nhập & có điểm]
+
+@enduml
