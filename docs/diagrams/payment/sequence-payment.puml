@@ -1,0 +1,107 @@
+@startuml
+title Sơ đồ Sequence - Thanh toán mô phỏng & Chống trùng lặp (FR-06)
+
+skinparam backgroundColor white
+skinparam sequence {
+    ArrowColor #2C3E50
+    LifeLineBorderColor #2C3E50
+    LifeLineBorderThickness 1.5
+    LifeLineBackgroundColor #EBF5FB
+    ParticipantBorderColor #2980B9
+    ParticipantBackgroundColor #EBF5FB
+    ParticipantFontColor #1B4F72
+    ActorBorderColor #2980B9
+    ActorBackgroundColor #EBF5FB
+    BoxBorderColor #2C3E50
+    BoxBackgroundColor #FFFFFF
+    MessageAlign center
+    ResponseMessageBelowArrow true
+}
+
+actor "Khách hàng" as User
+boundary "Màn hình Thanh toán\n(checkout/page.tsx)" as CheckoutUI
+control "PaymentsController" as Controller
+control "JwtAuthGuard" as Guard
+control "PaymentsService" as Service
+database "Cơ sở dữ liệu\n(Payment, Order)" as DB
+actor "Cổng thanh toán\nmô phỏng" as Gateway
+
+== Chuẩn bị thanh toán ==
+User -> CheckoutUI : Chọn phương thức\nMOCK_CARD / MOCK_WALLET
+activate CheckoutUI
+CheckoutUI -> CheckoutUI : Sinh Idempotency-Key (UUIDv4)
+CheckoutUI --> User : Hiển thị phương thức đã chọn\nvà nút "Thanh toán"
+deactivate CheckoutUI
+
+== Gửi yêu cầu thanh toán ==
+User -> CheckoutUI : Nhấn "Thanh toán"
+activate CheckoutUI
+CheckoutUI -> CheckoutUI : Vô hiệu hóa nút,\nhiển thị trạng thái đang xử lý
+CheckoutUI -> Controller : POST /api/v1/payments\n(orderId, method, JWT, Idempotency-Key)
+activate Controller
+
+Controller -> Guard : Xác thực JWT
+activate Guard
+Guard --> Controller : userId (hoặc từ chối)
+deactivate Guard
+
+alt Thiếu JWT hợp lệ hoặc thiếu Idempotency-Key
+    Controller --> CheckoutUI : 401 Unauthorized / 400 Bad Request
+    CheckoutUI --> User : Hiển thị lỗi, mở lại nút "Thanh toán"
+else JWT hợp lệ và có Idempotency-Key
+    Controller -> Service : processPayment(userId, orderId, method, key)
+    activate Service
+
+    Service -> DB : SELECT Payment WHERE idempotencyKey = ?\nAND createdAt > now() - 24h
+    activate DB
+    DB --> Service : Payment cũ (hoặc null)
+    deactivate DB
+
+    alt Key đã tồn tại trong 24 giờ (nhấn nhiều lần / mạng chập chờn)
+        Service --> Controller : Kết quả giao dịch cũ\n(không gọi cổng, không tạo Payment mới)
+        Controller --> CheckoutUI : 200 OK (kết quả giao dịch cũ)
+        CheckoutUI --> User : Hiển thị kết quả cũ\n(không trừ tiền lần 2)
+    else Key chưa tồn tại
+        Service -> DB : SELECT Order WHERE id = orderId
+        activate DB
+        DB --> Service : Order (hoặc null)
+        deactivate DB
+
+        alt Order không tồn tại / không thuộc khách / không ở trạng thái PENDING
+            Service --> Controller : Lỗi đơn hàng không hợp lệ
+            Controller --> CheckoutUI : 4xx (từ chối, không tạo giao dịch)
+            CheckoutUI --> User : Thông báo đơn hàng không hợp lệ
+        else Order hợp lệ và PENDING
+            Service -> Gateway : charge(amount, method)
+            activate Gateway
+            Gateway --> Service : Kết quả giao dịch (SUCCESS / DECLINED)
+            deactivate Gateway
+
+            alt Giao dịch thành công
+                Service -> DB : BEGIN TRANSACTION
+                activate DB
+                Service -> DB : INSERT Payment (SUCCESS, idempotencyKey)
+                Service -> DB : UPDATE Order SET status = PREPARING
+                Service -> DB : COMMIT
+                DB --> Service : Đã lưu
+                deactivate DB
+                Service --> Controller : Payment SUCCESS
+                Controller --> CheckoutUI : 200 OK (Payment SUCCESS)
+                CheckoutUI --> User : Chuyển sang màn hình Biên nhận
+            else Giao dịch bị từ chối
+                Service -> DB : INSERT Payment (FAILED, idempotencyKey)
+                activate DB
+                DB --> Service : Đã lưu
+                deactivate DB
+                Service --> Controller : Payment FAILED\n(Order giữ nguyên PENDING)
+                Controller --> CheckoutUI : Lỗi thanh toán thất bại
+                CheckoutUI --> User : Hiển thị lỗi, cho thanh toán lại\n(sinh Idempotency-Key mới)
+            end
+        end
+    end
+    deactivate Service
+end
+deactivate Controller
+deactivate CheckoutUI
+
+@enduml
