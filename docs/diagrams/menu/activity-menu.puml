@@ -1,40 +1,62 @@
 @startuml activity-menu
-skinparam ConditionEndStyle hline
-title Sơ đồ Activity: Hiển thị menu & Lọc theo danh mục (FR-01, FR-02)
+title Sơ đồ activity chức năng Xem Menu & Lọc theo danh mục (FR-01, FR-02)
 
-|Khách hàng|
 start
-:Mở trang Thực đơn (Menu);
 
-|Hệ thống|
-repeat
+partition "Khách hàng" {
+  :Mở trang Thực đơn (Menu);
+}
+
+partition "Hệ thống" {
   :Hiển thị trạng thái đang tải (Skeleton);
-  :Tiếp nhận yêu cầu lấy danh sách món\n(kèm điều kiện lọc danh mục, từ khóa nếu có);
-  :Kiểm tra tính hợp lệ của điều kiện lọc\nvà truy vấn danh sách món ăn;
-
-  if () then (Có món ăn phù hợp)
-    :Hiển thị thanh danh mục\nvà danh sách món ăn;
-  elseif () then (Không có món phù hợp)
-    :Hiển thị trạng thái danh sách trống (Empty);
-  else (Tham số không hợp lệ / Lỗi hệ thống)
-    :Hiển thị thông báo lỗi (Error)\nkèm nút "Thử lại";
+  :Tiếp nhận yêu cầu lấy danh sách món
+  và truy vấn danh sách món ăn;
+  if () then ([Truy vấn thành công])
+    if () then ([Có món ăn phù hợp])
+      :Hiển thị thanh danh mục
+      và danh sách món ăn;
+    else ([Không có món phù hợp])
+      :Hiển thị trạng thái danh sách trống (Empty);
+    endif
+  else ([Lỗi hệ thống])
+    :Hiển thị thông báo lỗi (Error)
+    kèm nút "Thử lại";
+    stop
   endif
+}
 
-|Khách hàng|
-  :Chọn thao tác tiếp theo;
-repeat while () is (Lọc danh mục / Tìm kiếm / Thử lại) not (Không)
+partition "Khách hàng" {
+  :Chọn danh mục hoặc nhập từ khóa tìm kiếm;
+}
 
-if () then (Chọn xem chi tiết một món)
-  |Hệ thống|
+partition "Hệ thống" {
+  :Kiểm tra tính hợp lệ của điều kiện lọc;
+  if () then ([Tham số hợp lệ])
+    :Truy vấn danh sách món theo danh mục và từ khóa;
+    if () then ([Có món ăn phù hợp])
+      :Cập nhật danh sách món ăn;
+    else ([Không có món phù hợp])
+      :Hiển thị trạng thái danh sách trống (Empty);
+    endif
+  else ([Tham số không hợp lệ])
+    :Hiển thị thông báo lỗi (Error);
+    stop
+  endif
+}
+
+partition "Khách hàng" {
+  :Chọn xem chi tiết một món;
+}
+
+partition "Hệ thống" {
   :Truy vấn thông tin chi tiết món ăn đã chọn;
-  if () then (Tìm thấy thông tin món)
+  if () then ([Tìm thấy thông tin món])
     :Hiển thị thông tin chi tiết món ăn;
-  else (Món không tồn tại)
-    :Thông báo "Không tìm thấy món"\nvà điều hướng quay về trang Thực đơn;
+  else ([Món không tồn tại])
+    :Thông báo "Không tìm thấy món"
+    và điều hướng quay về trang Thực đơn;
   endif
-else (Kết thúc duyệt thực đơn)
-endif
+}
 
-|Khách hàng|
 stop
 @enduml

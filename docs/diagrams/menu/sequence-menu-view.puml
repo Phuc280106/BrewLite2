@@ -1,53 +1,54 @@
-@startuml sequence-menu-view
+@startuml sequence-menu-list
 title Sequence Diagram - Luồng 1: Xem thực đơn đồ uống (FR-01)
-autonumber
+skinparam sequenceMessageAlign left
+skinparam monochrome true
+skinparam shadowing false
+skinparam ParticipantBackgroundColor white
+skinparam ActorBackgroundColor white
 hide footbox
-skinparam responseMessageBelowArrow true
+autonumber "0: "
 
-actor "Khách hàng" as KH
-boundary "Màn hình Menu\n(Next.js)" as UI
-control "ProductsController\n(NestJS)" as PC
-control "ProductsService\n(NestJS)" as PS
-control "PrismaService\n(Prisma ORM)" as PR
-database "PostgreSQL" as DB
+actor "__: KhachHang__" as KH
+participant "__:ManHinhMenu__" as UI
+participant "__:ProductsController__" as CTRL
+participant "__:ProductsService__" as SVC
+participant "__:PrismaService__" as PRISMA
+participant "__:PostgreSQL__" as DB
 
-KH -> UI : Mở trang Thực đơn
+KH -> UI : moTrangThucDon()
 activate UI
-UI --> KH : Hiển thị trạng thái Loading
-UI -> PC : GET /api/v1/products
-activate PC
-PC -> PS : findAll(query)
-activate PS
-PS -> PR : product.findMany(...)
-activate PR
-PR -> DB : Truy vấn danh sách Product\n(kèm Category nếu cần)
+UI --> KH : hienThiTrangThaiLoading()
+UI -> CTRL : layDanhSachSanPham()
+activate CTRL
+CTRL -> SVC : layDanhSachSanPham(query)
+activate SVC
+SVC -> PRISMA : timTatCaSanPham()
+activate PRISMA
+PRISMA -> DB : truyVanDanhSachSanPham()
 activate DB
 
 alt Truy vấn thành công và có sản phẩm
-  DB --> PR : Các bản ghi sản phẩm
-  PR --> PS : Danh sách Product
-  PS --> PC : Danh sách sản phẩm
-  PC --> UI : 200 OK + danh sách sản phẩm
-  UI --> KH : Hiển thị danh mục và danh sách món
+    DB --> PRISMA : cacBanGhiSanPham
+    PRISMA --> SVC : danhSachSanPham
+    SVC --> CTRL : danhSachSanPham
+    CTRL --> UI : danhSachSanPham
+    UI --> KH : hienThiDanhMucVaDanhSachMon(danhSachSanPham)
 else Truy vấn thành công nhưng danh sách rỗng
-  DB --> PR : Không có bản ghi
-  PR --> PS : Danh sách rỗng []
-  PS --> PC : Danh sách rỗng []
-  PC --> UI : 200 OK + danh sách rỗng
-  UI --> KH : Hiển thị trạng thái Empty
+    DB --> PRISMA : khongCoBanGhi
+    PRISMA --> SVC : danhSachRong
+    SVC --> CTRL : danhSachRong
+    CTRL --> UI : danhSachRong
+    UI --> KH : hienThiTrangThaiEmpty()
 else Lỗi truy vấn hoặc mất kết nối cơ sở dữ liệu
-  DB --> PR : Lỗi truy vấn/kết nối
-  PR --> PS : Database error
-  PS --> PC : Lỗi xử lý dữ liệu
-  PC --> UI : 500 Internal Server Error
-  UI --> KH : Hiển thị trạng thái Error và nút Thử lại
+    DB --> PRISMA : loiTruyVan
+    PRISMA --> SVC : loiCoSoDuLieu
+    SVC --> CTRL : loiXuLyDuLieu
+    CTRL --> UI : loiHeThong
+    UI --> KH : hienThiTrangThaiError(nutThuLai)
 end
-
 deactivate DB
-deactivate PR
-deactivate PS
-deactivate PC
+deactivate PRISMA
+deactivate SVC
+deactivate CTRL
 deactivate UI
 @enduml
-
-
