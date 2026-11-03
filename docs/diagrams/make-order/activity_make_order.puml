@@ -1,0 +1,71 @@
+@startuml activity_make_order_pure_uml
+skinparam monochrome true
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam roundCorner 10
+
+|Khách hàng|
+start
+:Nhấn nút [Tiến hành đặt hàng] tại Giỏ hàng;
+
+|Hệ thống BrewLite|
+:Hiển thị màn hình Xác nhận đơn hàng\n(Danh sách món, kích cỡ, topping, tổng tạm tính);
+
+|Khách hàng|
+:Chọn hình thức nhận đồ uống (Tại quán hoặc Mang đi);
+
+' --- Rẽ nhánh 1: Mã giảm giá (Hình thoi rỗng) ---
+if () then ([Có áp dụng mã giảm giá])
+  :Nhập mã Voucher và nhấn [Áp dụng];
+  |Hệ thống BrewLite|
+  if () then ([Mã hợp lệ và còn hạn])
+    :Trừ tiền giảm giá vào tổng đơn hàng;
+  else ([Mã không hợp lệ])
+    :Hiển thị thông báo mã không hợp lệ;
+  endif
+else ([Không áp dụng])
+endif
+
+' --- Rẽ nhánh 2: Đổi điểm (Hình thoi rỗng) ---
+|Khách hàng|
+if () then ([Có đổi điểm thưởng tích lũy])
+  :Chọn số điểm muốn đổi;
+  |Hệ thống BrewLite|
+  if () then ([Đủ điểm thưởng])
+    :Quy đổi điểm thành tiền giảm trừ;
+  else ([Không đủ điểm])
+    :Cảnh báo số dư điểm không đủ;
+  endif
+else ([Không đổi điểm])
+endif
+
+' --- Rẽ nhánh 3: Ghi chú (Hình thoi rỗng) ---
+|Khách hàng|
+if () then ([Có ghi chú pha chế])
+  :Nhập yêu cầu riêng (ít đá, ít đường...);
+else ([Không ghi chú])
+endif
+
+:Kiểm tra thông tin và nhấn nút [Đặt đồ uống];
+
+|Hệ thống BrewLite|
+:Khóa thao tác gửi đơn để ngăn bấm nhầm nhiều lần;
+:Kiểm tra khả năng phục vụ và tồn kho nguyên liệu;
+
+' --- Rẽ nhánh 4: Tồn kho (Hình thoi rỗng) ---
+if () then ([Hết nguyên liệu])
+  :Mở lại nút đặt đồ uống;
+  :Thông báo "Món đã hết nguyên liệu, vui lòng chọn món khác";
+  stop
+else ([Đủ nguyên liệu])
+  :Tạm giữ số lượng nguyên liệu tương ứng;
+  :Ghi nhận đơn hàng mới ở trạng thái Chờ thanh toán (PENDING);
+  :Làm sạch danh sách món trong giỏ hàng;
+  :Điều hướng sang màn hình Thanh toán;
+  
+  |Khách hàng|
+  :Kiểm tra thông tin đơn hàng trên màn hình Thanh toán;
+  stop
+endif
+
+@enduml
