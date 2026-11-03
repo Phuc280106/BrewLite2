@@ -2,45 +2,41 @@
 skinparam ConditionStyle diamond
 |Khách hàng|
 start
-:clickOrderHistory();
+:Chọn xem lịch sử đơn hàng;
 
-|Frontend (Next.js)|
-:fetchMyOrders(jwtToken);
+|Frontend|
+:Gửi yêu cầu lấy danh sách đơn hàng;
 
-|Backend API (NestJS)|
-:authGuard.canActivate(context);
-:jwtService.verify(jwtToken);
-if (isValid?) then (true)
-  :orderService.findByUserId(userId);
-  :orderRepository.find({ where: { userId } });
-  :return HttpResponse.OK(Order[]);
-else (false)
-  :return HttpResponse.Unauthorized();
-  |Frontend (Next.js)|
-  :router.push('/login');
+|Backend|
+:Xác thực thông tin tài khoản;
+if (Hợp lệ?) then (Đúng)
+  :Tìm kiếm danh sách đơn hàng của khách hàng;
+  :Trả về dữ liệu danh sách đơn hàng;
+else (Sai)
+  :Từ chối truy cập;
+  |Frontend|
+  :Yêu cầu khách hàng đăng nhập lại;
   |Khách hàng|
   stop
 endif
 
-|Frontend (Next.js)|
-:renderComponent(<OrderList orders={Order[]} />);
+|Frontend|
+:Hiển thị danh sách đơn hàng;
 
 |Khách hàng|
-:clickOrderDetail(orderId);
+:Chọn xem chi tiết một đơn hàng;
 
-|Frontend (Next.js)|
-:fetchOrderDetails(orderId);
+|Frontend|
+:Gửi yêu cầu lấy thông tin chi tiết đơn hàng;
 
-|Backend API (NestJS)|
-:orderService.findOneWithDetails(orderId);
-:orderRepository.findOne({ relations: ['orderDetails'], where: { id: orderId } });
-:return HttpResponse.OK(OrderDto);
+|Backend|
+:Tìm kiếm chi tiết biên nhận và trạng thái;
+:Trả về dữ liệu chi tiết đơn hàng;
 
-|Frontend (Next.js)|
-:renderComponent(<Receipt order={OrderDto} />);
-:mount(<OrderStatusStepper currentStatus={OrderDto.status} />);
+|Frontend|
+:Hiển thị biên nhận và thanh tiến trình trạng thái;
 
 |Khách hàng|
-:viewReceiptAndStatus();
+:Xem biên nhận và tiến trình xử lý;
 stop
 @enduml

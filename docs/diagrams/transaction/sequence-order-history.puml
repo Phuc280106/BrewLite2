@@ -1,62 +1,61 @@
 @startuml
 actor "Khách hàng" as Customer
-participant "Frontend\n(Next.js)" as UI
-participant "OrderController\n(NestJS)" as Controller
+participant "Frontend" as UI
+participant "OrderController" as Controller
 participant "OrderService" as Service
 participant "OrderRepository" as Repo
 database "PostgreSQL" as DB
 
-Customer -> UI : clickOrderHistory()
+Customer -> UI : chonXemLichSuDonHang()
 activate UI
-UI -> Controller : HTTP GET /orders/my-orders\nfetchMyOrders(req)
+UI -> Controller : yeuCauDanhSachDonHang(token)
 activate Controller
 
-Controller -> Service : getOrdersByUserId(userId)
+Controller -> Service : layDonHangTheoNguoiDung(userId)
 activate Service
 
-Service -> Repo : find({ where: { userId } })
+Service -> Repo : timDonHang(userId)
 activate Repo
-Repo -> DB : executeQuery("SELECT * FROM orders WHERE user_id = ...")
+Repo -> DB : truyVanDanhSachDonHang(userId)
 activate DB
-DB --> Repo : ResultSet
+DB --> Repo : banGhiDanhSachDonHang
 deactivate DB
-Repo --> Service : Order[]
+Repo --> Service : danhSachDonHang
 deactivate Repo
 
-Service --> Controller : OrderDto[]
+Service --> Controller : danhSachDonHangDto
 deactivate Service
 
-Controller --> UI : 200 OK (OrderDto[])
+Controller --> UI : traVeDanhSachDonHang(danhSachDonHangDto)
 deactivate Controller
-UI -> UI : render(<OrderList orders={OrderDto[]} />)
-UI --> Customer : displayOrderHistory()
+UI -> UI : renderDanhSachDonHang(danhSachDonHangDto)
+UI --> Customer : hienThiManHinhLichSu()
 deactivate UI
 
-Customer -> UI : clickOrderDetail(orderId)
+Customer -> UI : chonXemChiTietDon(orderId)
 activate UI
-UI -> Controller : HTTP GET /orders/{id}\nfetchOrderDetails(orderId)
+UI -> Controller : yeuCauChiTietDonHang(orderId)
 activate Controller
 
-Controller -> Service : getOrderDetails(orderId)
+Controller -> Service : layChiTietDonHang(orderId)
 activate Service
 
-Service -> Repo : findOne({ relations: ['details'], where: { id: orderId } })
+Service -> Repo : timChiTietDonHang(orderId)
 activate Repo
-Repo -> DB : executeQuery("SELECT * FROM orders JOIN order_details ...")
+Repo -> DB : truyVanChiTietDonHang(orderId)
 activate DB
-DB --> Repo : ResultSet
+DB --> Repo : banGhiChiTietDonHang
 deactivate DB
-Repo --> Service : Order entity
+Repo --> Service : chiTietDonHang
 deactivate Repo
 
-Service --> Controller : OrderDetailDto
+Service --> Controller : chiTietDonHangDto
 deactivate Service
 
-Controller --> UI : 200 OK (OrderDetailDto)
+Controller --> UI : traVeChiTietDonHang(chiTietDonHangDto)
 deactivate Controller
 
-UI -> UI : render(<Receipt data={OrderDetailDto} />)
-UI -> UI : mount(<OrderStatusStepper status={OrderDetailDto.status} />)
-UI --> Customer : displayReceiptAndProgress()
+UI -> UI : renderBienNhanVaTienTrinh(chiTietDonHangDto)
+UI --> Customer : hienThiManHinhChiTiet()
 deactivate UI
 @enduml
