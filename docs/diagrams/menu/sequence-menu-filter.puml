@@ -1,0 +1,52 @@
+@startuml sequence-menu-filter-search
+title Sequence Diagram - Luồng 2: Lọc theo danh mục và tìm kiếm (FR-02)
+skinparam sequenceMessageAlign left
+skinparam monochrome true
+skinparam shadowing false
+skinparam ParticipantBackgroundColor white
+skinparam ActorBackgroundColor white
+hide footbox
+autonumber "0: "
+
+actor "__: KhachHang__" as KH
+participant "__:ManHinhMenu__" as UI
+participant "__:ProductsController__" as CTRL
+participant "__:ProductsService__" as SVC
+participant "__:PrismaService__" as PRISMA
+participant "__:PostgreSQL__" as DB
+
+KH -> UI : chonDanhMucHoacNhapTuKhoa(danhMuc, tuKhoa)
+activate UI
+UI --> KH : hienThiTrangThaiLoading()
+UI -> CTRL : locVaTimKiemSanPham(danhMuc, tuKhoa)
+activate CTRL
+CTRL -> CTRL : validate(QueryProductDto)
+
+alt Tham số truy vấn không hợp lệ
+    CTRL --> UI : thongBaoThamSoKhongHopLe
+    UI --> KH : hienThiThongBaoLoi()
+else Tham số truy vấn hợp lệ
+    CTRL -> SVC : locVaTimKiemSanPham(query)
+    activate SVC
+    SVC -> PRISMA : timSanPhamTheoDieuKien(danhMuc, tuKhoa)
+    activate PRISMA
+    PRISMA -> DB : truyVanSanPhamTheoDanhMucVaTuKhoa(danhMuc, tuKhoa)
+    activate DB
+    DB --> PRISMA : cacBanGhiPhuHop
+    deactivate DB
+    PRISMA --> SVC : danhSachSanPham
+    deactivate PRISMA
+    SVC --> CTRL : danhSachSanPham
+    deactivate SVC
+
+    alt Có sản phẩm phù hợp
+        CTRL --> UI : danhSachSanPham
+        UI --> KH : capNhatDanhSachMon(danhSachSanPham)
+    else Không có sản phẩm phù hợp
+        CTRL --> UI : danhSachRong
+        UI --> KH : hienThiTrangThaiEmpty()
+    end
+end
+deactivate CTRL
+deactivate UI
+@enduml

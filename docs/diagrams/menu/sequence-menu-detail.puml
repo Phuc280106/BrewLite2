@@ -1,0 +1,47 @@
+@startuml sequence-product-detail
+title Sequence Diagram - Luồng 3: Xem chi tiết món (FR-01)
+skinparam sequenceMessageAlign left
+skinparam monochrome true
+skinparam shadowing false
+skinparam ParticipantBackgroundColor white
+skinparam ActorBackgroundColor white
+hide footbox
+autonumber "0: "
+
+actor "__: KhachHang__" as KH
+participant "__:ManHinhMenu__" as UI
+participant "__:ProductsController__" as CTRL
+participant "__:ProductsService__" as SVC
+participant "__:PrismaService__" as PRISMA
+participant "__:PostgreSQL__" as DB
+
+KH -> UI : chonMon(id)
+activate UI
+UI -> CTRL : layChiTietSanPham(id)
+activate CTRL
+CTRL -> SVC : layChiTietSanPham(id)
+activate SVC
+SVC -> PRISMA : timSanPhamTheoId(id)
+activate PRISMA
+PRISMA -> DB : truyVanSanPhamTheoId(id)
+activate DB
+
+alt Tìm thấy sản phẩm
+    DB --> PRISMA : banGhiSanPham
+    PRISMA --> SVC : sanPham
+    SVC --> CTRL : sanPham
+    CTRL --> UI : chiTietSanPham
+    UI --> KH : hienThiChiTietMon(chiTietSanPham)
+else Không tìm thấy sản phẩm
+    DB --> PRISMA : khongCoBanGhi
+    PRISMA --> SVC : khongCoSanPham
+    SVC --> CTRL : loiKhongTimThaySanPham
+    CTRL --> UI : thongBaoKhongTimThay
+    UI --> KH : hienThiThongBaoKhongTimThayMon()
+end
+deactivate DB
+deactivate PRISMA
+deactivate SVC
+deactivate CTRL
+deactivate UI
+@enduml

@@ -1,0 +1,62 @@
+@startuml activity-menu
+title Sơ đồ activity chức năng Xem Menu & Lọc theo danh mục (FR-01, FR-02)
+
+start
+
+partition "Khách hàng" {
+  :Mở trang Thực đơn (Menu);
+}
+
+partition "Hệ thống" {
+  :Hiển thị trạng thái đang tải (Skeleton);
+  :Tiếp nhận yêu cầu lấy danh sách món
+  và truy vấn danh sách món ăn;
+  if () then ([Truy vấn thành công])
+    if () then ([Có món ăn phù hợp])
+      :Hiển thị thanh danh mục
+      và danh sách món ăn;
+    else ([Không có món phù hợp])
+      :Hiển thị trạng thái danh sách trống (Empty);
+    endif
+  else ([Lỗi hệ thống])
+    :Hiển thị thông báo lỗi (Error)
+    kèm nút "Thử lại";
+    stop
+  endif
+}
+
+partition "Khách hàng" {
+  :Chọn danh mục hoặc nhập từ khóa tìm kiếm;
+}
+
+partition "Hệ thống" {
+  :Kiểm tra tính hợp lệ của điều kiện lọc;
+  if () then ([Tham số hợp lệ])
+    :Truy vấn danh sách món theo danh mục và từ khóa;
+    if () then ([Có món ăn phù hợp])
+      :Cập nhật danh sách món ăn;
+    else ([Không có món phù hợp])
+      :Hiển thị trạng thái danh sách trống (Empty);
+    endif
+  else ([Tham số không hợp lệ])
+    :Hiển thị thông báo lỗi (Error);
+    stop
+  endif
+}
+
+partition "Khách hàng" {
+  :Chọn xem chi tiết một món;
+}
+
+partition "Hệ thống" {
+  :Truy vấn thông tin chi tiết món ăn đã chọn;
+  if () then ([Tìm thấy thông tin món])
+    :Hiển thị thông tin chi tiết món ăn;
+  else ([Món không tồn tại])
+    :Thông báo "Không tìm thấy món"
+    và điều hướng quay về trang Thực đơn;
+  endif
+}
+
+stop
+@enduml
