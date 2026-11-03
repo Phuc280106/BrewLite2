@@ -1,0 +1,67 @@
+@startuml sequence_make_order
+skinparam monochrome true
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam roundCorner 10
+autonumber
+
+actor ":KhachHang" as KH
+participant ":ManHinhDatHang" as UI
+participant ":OrdersController" as Controller
+participant ":OrdersService" as Service
+database ":Database" as DB
+
+KH -> UI: nhanNutDatHang()
+activate UI
+UI -> UI: khoaNutDatHang()
+
+UI -> Controller: yeuCauTaoDon(danhSachMon, tongTien, hinhThuc)
+activate Controller
+
+Controller -> Controller: kiemTraXacThuc()
+
+alt Token không hợp lệ
+    Controller --> UI: thongBaoLoiXacThuc
+    UI -> UI: moLaiNutDatHang()
+    UI --> KH: yeuCauDangNhapLai()
+else Token hợp lệ
+    Controller -> Service: taoDonHang(maKhachHang, danhSachMon, tongTien)
+    activate Service
+
+    Service -> DB: batDauGiaoDich()
+    activate DB
+    Service -> DB: kiemTraVaGiuTonKho(danhSachMon)
+
+    alt Đủ nguyên liệu tồn kho
+        DB --> Service: xacNhanGiuKho
+        Service -> DB: luuDonHang(thongTinDon, "PENDING")
+        DB --> Service: maDonHang
+        Service -> DB: hoanTatGiaoDich()
+        deactivate DB
+
+        Service --> Controller: taoDonThanhCong(maDonHang)
+        deactivate Service
+
+        Controller --> UI: ketQuaTaoDon(maDonHang)
+        UI -> UI: xoaGioHang()
+        UI --> KH: dieuHuongThanhToan(maDonHang)
+
+    else Hết nguyên liệu
+        activate Service
+        activate DB
+        DB --> Service: thongBaoHetHang
+        Service -> DB: huyGiaoDich()
+        deactivate DB
+
+        Service --> Controller: baoLoiHetHang
+        deactivate Service
+
+        Controller --> UI: baoLoiHetHang
+        UI -> UI: moLaiNutDatHang()
+        UI --> KH: hienThiThongBaoHetHang()
+    end
+end
+
+deactivate Controller
+deactivate UI
+@enduml
