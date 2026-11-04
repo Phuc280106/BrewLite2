@@ -1,4 +1,4 @@
-@startuml activity_make_order_pure_uml
+@startuml activity_make_order
 skinparam monochrome true
 skinparam shadowing false
 skinparam defaultFontName Arial

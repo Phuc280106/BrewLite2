@@ -1,7 +1,6 @@
-@startuml usecase_make_order_phuc
+@startuml usecase_make_order
 title Phân hệ Khởi tạo Đơn hàng
 
-' --- Cấu hình giao diện chuẩn đen trắng (Monochrome UML 2.5) ---
 skinparam monochrome true
 skinparam packageStyle rectangle
 skinparam shadowing false
