@@ -1,0 +1,42 @@
+@startuml
+skinparam ConditionStyle diamond
+|Khách hàng|
+start
+:Chọn xem lịch sử đơn hàng;
+
+|Frontend|
+:Gửi yêu cầu lấy danh sách đơn hàng;
+
+|Backend|
+:Xác thực thông tin tài khoản;
+if (Hợp lệ?) then (Đúng)
+  :Tìm kiếm danh sách đơn hàng của khách hàng;
+  :Trả về dữ liệu danh sách đơn hàng;
+else (Sai)
+  :Từ chối truy cập;
+  |Frontend|
+  :Yêu cầu khách hàng đăng nhập lại;
+  |Khách hàng|
+  stop
+endif
+
+|Frontend|
+:Hiển thị danh sách đơn hàng;
+
+|Khách hàng|
+:Chọn xem chi tiết một đơn hàng;
+
+|Frontend|
+:Gửi yêu cầu lấy thông tin chi tiết đơn hàng;
+
+|Backend|
+:Tìm kiếm chi tiết biên nhận và trạng thái;
+:Trả về dữ liệu chi tiết đơn hàng;
+
+|Frontend|
+:Hiển thị biên nhận và thanh tiến trình trạng thái;
+
+|Khách hàng|
+:Xem biên nhận và tiến trình xử lý;
+stop
+@enduml

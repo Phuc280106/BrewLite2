@@ -1,0 +1,61 @@
+@startuml
+actor "Khách hàng" as Customer
+participant "Frontend" as UI
+participant "OrderController" as Controller
+participant "OrderService" as Service
+participant "OrderRepository" as Repo
+database "PostgreSQL" as DB
+
+Customer -> UI : chonXemLichSuDonHang()
+activate UI
+UI -> Controller : yeuCauDanhSachDonHang(token)
+activate Controller
+
+Controller -> Service : layDonHangTheoNguoiDung(userId)
+activate Service
+
+Service -> Repo : timDonHang(userId)
+activate Repo
+Repo -> DB : truyVanDanhSachDonHang(userId)
+activate DB
+DB --> Repo : banGhiDanhSachDonHang
+deactivate DB
+Repo --> Service : danhSachDonHang
+deactivate Repo
+
+Service --> Controller : danhSachDonHangDto
+deactivate Service
+
+Controller --> UI : traVeDanhSachDonHang(danhSachDonHangDto)
+deactivate Controller
+UI -> UI : renderDanhSachDonHang(danhSachDonHangDto)
+UI --> Customer : hienThiManHinhLichSu()
+deactivate UI
+
+Customer -> UI : chonXemChiTietDon(orderId)
+activate UI
+UI -> Controller : yeuCauChiTietDonHang(orderId)
+activate Controller
+
+Controller -> Service : layChiTietDonHang(orderId)
+activate Service
+
+Service -> Repo : timChiTietDonHang(orderId)
+activate Repo
+Repo -> DB : truyVanChiTietDonHang(orderId)
+activate DB
+DB --> Repo : banGhiChiTietDonHang
+deactivate DB
+Repo --> Service : chiTietDonHang
+deactivate Repo
+
+Service --> Controller : chiTietDonHangDto
+deactivate Service
+
+Controller --> UI : traVeChiTietDonHang(chiTietDonHangDto)
+deactivate Controller
+
+UI -> UI : renderBienNhanVaTienTrinh(chiTietDonHangDto)
+UI --> Customer : hienThiManHinhChiTiet()
+deactivate UI
+@enduml

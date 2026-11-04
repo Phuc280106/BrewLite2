@@ -1,0 +1,27 @@
+@startuml
+left to right direction
+skinparam packageStyle rectangle
+
+actor "Khách hàng\n(Customer)" as Customer
+
+rectangle "Hệ thống BrewLite" {
+
+    package "Đơn hàng" {
+        usecase "Xem lịch sử đơn" as ViewHistory
+        usecase "Theo dõi trạng thái" as TrackStatus
+    }
+
+    package "Thanh toán" {
+        usecase "Thanh toán đơn hàng" as Payment
+        usecase "Xem biên nhận" as ViewReceipt
+    }
+
+    ' Tương tác của Khách hàng
+    Customer --> ViewHistory
+    Customer --> TrackStatus
+    Customer --> Payment
+
+    ' Mối quan hệ include
+    Payment ..> ViewReceipt : <<include>>
+}
+@enduml
