@@ -1,0 +1,77 @@
+@startuml
+title Sơ đồ activity chức năng Thanh toán mô phỏng\n& Chống trùng lặp (FR-06)
+
+skinparam defaultFontSize 11
+skinparam titleFontSize 12
+skinparam Padding 1
+skinparam ConditionStyle diamond
+skinparam ConditionEndStyle diamond
+skinparam ActivityPadding 4
+skinparam ActivityBackgroundColor #FFFFFF
+skinparam ActivityBorderColor #2C3E50
+skinparam ArrowColor #2C3E50
+skinparam ActivityDiamondBackgroundColor #FEF9E7
+skinparam ActivityDiamondBorderColor #B7950B
+skinparam swimlaneTitleFontStyle bold
+skinparam NoteBackgroundColor #FEF9E7
+
+|Khách hàng|
+start
+:Chọn phương thức\n(thẻ / ví giả lập);
+
+|Hệ thống|
+:Sinh Idempotency-Key\n(UUIDv4);
+
+|Khách hàng|
+:Nhấn nút "Thanh toán";
+
+|Hệ thống|
+:Khóa nút, gửi POST /payments\nkèm JWT + key;
+
+-> JWT hợp lệ\nvà có key?;
+if () then (không)
+  :Trả lỗi 401 /\nyêu cầu không hợp lệ;
+  stop
+else (có)
+endif
+
+-> Key đã xử lý\ntrong 24 giờ?;
+if () then (có)
+  :Trả kết quả cũ\n(200 OK, không\ntrừ tiền lần 2);
+else (chưa)
+  -> Đơn hợp lệ\nvà PENDING?;
+  if () then (không)
+    :Từ chối,\nđơn không hợp lệ;
+    stop
+  else (có)
+  endif
+
+  |Cổng thanh toán|
+  :Xử lý giao dịch\nmô phỏng;
+
+  |Hệ thống|
+  -> Giao dịch\nthành công?;
+  if () then (thành công)
+    :Tạo Payment SUCCESS,\nđơn PENDING → PREPARING,\ntrả 200 OK;
+  else (bị từ chối)
+    :Tạo Payment FAILED,\ngiữ đơn PENDING, trả lỗi;
+
+    |Khách hàng|
+    :Xem lỗi,\nthanh toán lại;
+    stop
+  endif
+endif
+
+|Hệ thống|
+:Chuyển sang\nmàn hình Biên nhận;
+
+|Khách hàng|
+:Xem biên nhận đơn hàng;
+stop
+
+note right
+  Ngoài luồng: quá 15 phút chưa
+  thanh toán thành công thì hệ thống
+  hoàn kho, đơn chuyển CANCELLED.
+end note
+@enduml

@@ -1,0 +1,41 @@
+@startuml
+title Sơ đồ Sequence - Hủy đơn & hoàn kho khi quá 15 phút chưa thanh toán (FR-06)
+
+skinparam backgroundColor white
+skinparam sequence {
+    ArrowColor #2C3E50
+    LifeLineBorderColor #2C3E50
+    LifeLineBorderThickness 1.5
+    LifeLineBackgroundColor #EBF5FB
+    ParticipantBorderColor #2980B9
+    ParticipantBackgroundColor #EBF5FB
+    ParticipantFontColor #1B4F72
+    MessageAlign center
+    ResponseMessageBelowArrow true
+}
+
+participant "Bộ lập lịch\n(@Cron / Scheduler)" as Scheduler
+control "PaymentsService\n/ OrdersService" as Service
+database "Cơ sở dữ liệu\n(Order, Ingredient)" as DB
+
+loop Định kỳ (ví dụ mỗi phút)
+    Scheduler -> Service : cancelExpiredOrders()
+    activate Service
+    Service -> DB : SELECT Order WHERE status = PENDING\nAND createdAt < now() - 15 phút
+    activate DB
+    DB --> Service : Danh sách đơn quá hạn
+    deactivate DB
+
+    loop Với mỗi đơn quá hạn
+        Service -> DB : BEGIN TRANSACTION
+        activate DB
+        Service -> DB : UPDATE Ingredient SET stock = stock + số lượng đã giữ
+        Service -> DB : UPDATE Order SET status = CANCELLED
+        Service -> DB : COMMIT
+        DB --> Service : Đã hoàn kho & hủy đơn
+        deactivate DB
+    end
+    deactivate Service
+end
+
+@enduml
