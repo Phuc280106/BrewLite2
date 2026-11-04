@@ -1,5 +1,5 @@
 @startuml
-title S?? ????? Sequence - H???y ????n & ho??n kho khi qu?? 15 ph??t ch??a thanh to??n (FR-06)
+title Sơ đồ Sequence - Hủy đơn & hoàn kho khi quá 15 phút chưa thanh toán (FR-06)
 
 skinparam backgroundColor white
 skinparam sequence {
@@ -14,25 +14,25 @@ skinparam sequence {
     ResponseMessageBelowArrow true
 }
 
-participant "B??? l???p l???ch\n(@Cron / Scheduler)" as Scheduler
+participant "Bộ lập lịch\n(@Cron / Scheduler)" as Scheduler
 control "PaymentsService\n/ OrdersService" as Service
-database "C?? s??? d??? li???u\n(Order, Ingredient)" as DB
+database "Cơ sở dữ liệu\n(Order, Ingredient)" as DB
 
-loop ?????nh k??? (v?? d??? m???i ph??t)
+loop Định kỳ (ví dụ mỗi phút)
     Scheduler -> Service : cancelExpiredOrders()
     activate Service
-    Service -> DB : SELECT Order WHERE status = PENDING\nAND createdAt < now() - 15 ph??t
+    Service -> DB : SELECT Order WHERE status = PENDING\nAND createdAt < now() - 15 phút
     activate DB
-    DB --> Service : Danh s??ch ????n qu?? h???n
+    DB --> Service : Danh sách đơn quá hạn
     deactivate DB
 
-    loop V???i m???i ????n qu?? h???n
+    loop Với mỗi đơn quá hạn
         Service -> DB : BEGIN TRANSACTION
         activate DB
-        Service -> DB : UPDATE Ingredient SET stock = stock + s??? l?????ng ???? gi???
+        Service -> DB : UPDATE Ingredient SET stock = stock + số lượng đã giữ
         Service -> DB : UPDATE Order SET status = CANCELLED
         Service -> DB : COMMIT
-        DB --> Service : ???? ho??n kho & h???y ????n
+        DB --> Service : Đã hoàn kho & hủy đơn
         deactivate DB
     end
     deactivate Service
