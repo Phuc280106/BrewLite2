@@ -1,0 +1,174 @@
+@startuml 
+
+' --- Direct Enum Definitions ---
+enum OrderStatus {
+  PENDING
+  PREPARING
+  READY
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  SUCCESS
+  FAILED
+}
+
+enum LoaiGiaoDichKhuyenMai {
+  EARN
+  REDEEM
+}
+
+' --- Core Domain Classes ---
+
+class User {
+  - String userId
+  - String name
+  - String email
+  - String passwordHash
+  - String role 
+  + getUserId(): String
+  + getRole(): String
+}
+
+class Category {
+  - String categoryId
+  - String name
+  - String description
+  + getCategoryId(): String
+  + getName(): String
+}
+
+class Product {
+  - String productId
+  - String categoryId
+  - String name
+  - String description
+  - Double basePrice
+  - String imageUrl
+  - Boolean inStock
+  + getProductId(): String
+  + getBasePrice(): Double
+  + isInStock(): Boolean
+  + updateStock(status: boolean): void
+}
+
+class Size {
+  - String sizeId
+  - String name
+  - Double priceAdjustment
+  + getPriceAdjustment(): Double
+}
+
+class Topping {
+  - String toppingId
+  - String name
+  - Double price
+  + getPrice(): Double
+}
+
+class Cart {
+  - String cartId
+  - String userId
+  - DateTime updatedAt
+  + addItem(item: CartItem): void
+  + removeItem(cartItemId: String): void
+  + updateQuantity(cartItem String, quantity: Integer): void
+  + clearCart(): void
+  + calculateTotal(): Double
+}
+
+class CartItem {
+  - String cartItemId
+  - Integer quantity
+  + getSubtotal(): Double
+}
+
+class Order {
+  - String orderId
+  - String userId
+  - OrderStatus status
+  - Decimal totalAmount
+  - Decimal discountAmount
+  - Integer pointsRedeemed
+  - DateTime createdAt
+  + getOrderId(): String
+  + getStatus(): OrderStatus
+  + updateStatus(newStatus: orderStatus): void
+  + cancelOrder(): void
+  + calculateFinalAmount(): Double
+}
+
+class OrderItem {
+  - String orderItemId
+  - String productId
+  - String productName
+  - Double unitPrice 
+  - Integer quantity
+  + getSubtotal(): Double
+}
+
+class Payment {
+  - String paymentId
+  - String orderId
+  - String paymentMethod 
+  - PaymentStatus status
+  - String transactionId
+  - String idempotencyKey
+  - Double amount
+  - DateTime createdAt
+  + processPayment(): Boolean
+}
+
+class Loyalty {
+  - String loyaltyId
+  - String userId
+  - Integer points
+  + getPoints(): Integer
+  + addPoints(amount: Integer): void
+  + redeemPoints(amount: Integer): Boolean
+}
+
+class LoyaltyTransaction {
+  - String transactionId
+  - String loyaltyId
+  - String orderId
+  - LoaiGiaoDichKhuyenMai enum
+  - Integer pointsAmount
+  - DateTime createdAt
+}
+
+' --- Relationships ---
+
+' Catalog & Category Relationship
+Category "1" <-- "*" Product : thuộc về
+
+' User Relationships
+User "1" --> "0..1" Cart : sở hữu
+User "1" --> "0..*" Order : tạo
+User "1" --> "0..1" Loyalty : có
+
+' Cart Composition
+Cart "1" *-- "0..*" CartItem : chứa
+
+' Order Composition & Payment
+Order "1" *-- "1..*" OrderItem : bao gồm
+Order "1" *-- "0..1" Payment : thanh toán
+
+' Line Item Snapshots & Selections
+CartItem "*" --> "1" Product : tham chiếu
+CartItem "*" --> "1" Size : lựa chọn
+CartItem "*" --> "0..*" Topping : bao gồm
+
+OrderItem "*" --> "1" Product : ghi nhận trạng thái
+OrderItem "*" --> "1" Size : ghi nhận trạng thái
+OrderItem "*" --> "0..*" Topping : ghi nhận trạng thái
+
+' Loyalty Composition
+Loyalty "1" *-- "0..*" LoyaltyTransaction : tạo ra
+
+' Product Options (Aggregation)
+Product "*" o-- "*" Size : có
+Product "*" o-- "*" Topping : có thể thêm
+
+@enduml
