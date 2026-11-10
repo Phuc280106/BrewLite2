@@ -1,4 +1,4 @@
-@startuml 
+@startuml
 
 ' --- Direct Enum Definitions ---
 enum OrderStatus {
@@ -7,6 +7,8 @@ enum OrderStatus {
   READY
   COMPLETED
   CANCELLED
+  PAID
+  PAYMENT_FAILED
 }
 
 enum PaymentStatus {
@@ -46,11 +48,11 @@ class Product {
   - String description
   - Double basePrice
   - String imageUrl
-  - Boolean inStock
+  - Integer version  
   + getProductId(): String
   + getBasePrice(): Double
-  + isInStock(): Boolean
-  + updateStock(status: boolean): void
+  + calculateAvailableStock(sizeId: String): Integer 
+  + isInStock(sizeId: String): Boolean
 }
 
 class Size {
@@ -94,7 +96,7 @@ class Order {
   - DateTime createdAt
   + getOrderId(): String
   + getStatus(): OrderStatus
-  + updateStatus(newStatus: orderStatus): void
+  + updateStatus(newStatus: OrderStatus): void
   + cancelOrder(): void
   + calculateFinalAmount(): Double
 }
@@ -133,9 +135,41 @@ class LoyaltyTransaction {
   - String transactionId
   - String loyaltyId
   - String orderId
-  - LoaiGiaoDichKhuyenMai enum
+  - Enum LoaiGiaoDichKhuyenMai 
   - Integer pointsAmount
   - DateTime createdAt
+}
+
+class Promotion {
+  - String promotionId
+  - String description
+  - Double minimumOrderAmount
+  - Double discountAmount
+  - Integer discountPercentage
+  + getPromotion(id: String): void
+}
+
+class Ingredient {
+  - String ingredientId
+  - String name
+  - String unit
+  - Integer stock
+  - Integer version  
+  + deductStock(amount: Integer, currentVersion: Integer): Boolean
+  + restoreStock(amount: Integer): void
+}
+
+class RecipeItems {
+  - String recipeId
+  - String productId
+  - String sizeId
+  - Integer requiredAmount
+  + getRequiredAmount(): Integer
+}
+
+class InventoryService {
+  + checkAndReserveStock(order: Order): Boolean 
+  + releaseStock(order: Order): void
 }
 
 ' --- Relationships ---
@@ -147,13 +181,15 @@ Category "1" <-- "*" Product : thuộc về
 User "1" --> "0..1" Cart : sở hữu
 User "1" --> "0..*" Order : tạo
 User "1" --> "0..1" Loyalty : có
+User "1..*" --> "0..*" Promotion : sử dụng
 
 ' Cart Composition
 Cart "1" *-- "0..*" CartItem : chứa
 
 ' Order Composition & Payment
 Order "1" *-- "1..*" OrderItem : bao gồm
-Order "1" *-- "0..1" Payment : thanh toán
+Order "1" *-- "0..*" Payment : thanh toán
+Order "1..*" o-- "1" Promotion : áp dụng
 
 ' Line Item Snapshots & Selections
 CartItem "*" --> "1" Product : tham chiếu
@@ -170,5 +206,13 @@ Loyalty "1" *-- "0..*" LoyaltyTransaction : tạo ra
 ' Product Options (Aggregation)
 Product "*" o-- "*" Size : có
 Product "*" o-- "*" Topping : có thể thêm
+
+' Recipe & Ingredient Relationships (Stock Calculation)
+Product "1" o-- "*" RecipeItems : mượn định nghĩa 
+Size "1" o-- "*" RecipeItems : phân loại theo size
+RecipeItems "*" --> "1" Ingredient : tiêu thụ 
+
+' Concurrency & Inventory management
+Order "1" --> "1" InventoryService : ủy quyền 
 
 @enduml
