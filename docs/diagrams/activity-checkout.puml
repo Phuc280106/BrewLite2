@@ -1,0 +1,171 @@
+@startuml activity-checkout
+title Sơ đồ Hoạt động Tổng thể Hệ thống BrewLite\n(Xem thực đơn -> Đặt món -> Thanh toán -> Pha chế -> Biên nhận & Tích điểm)
+
+skinparam defaultFontName Arial
+skinparam defaultFontSize 11
+skinparam titleFontSize 13
+skinparam shadowing false
+skinparam roundCorner 8
+skinparam Padding 3
+skinparam ConditionStyle diamond
+skinparam ConditionEndStyle diamond
+
+skinparam activity {
+    BackgroundColor #FFFFFF
+    BorderColor #2C3E50
+    BorderThickness 1.3
+    FontColor #1C2833
+    ArrowColor #2C3E50
+    ArrowThickness 1.2
+}
+
+skinparam activityDiamond {
+    BackgroundColor #FEF9E7
+    BorderColor #B7950B
+    BorderThickness 1.2
+    FontColor #1C2833
+}
+
+skinparam swimlane {
+    TitleFontStyle bold
+    TitleFontSize 12
+    BorderColor #5D6D7E
+    BorderThickness 1.5
+}
+
+skinparam note {
+    BackgroundColor #FEF9E7
+    BorderColor #D4AC0D
+}
+
+|#EBF5FB|Khách hàng|
+|#EAFAF1|Hệ thống BrewLite|
+|#F5EEF8|Cổng thanh toán|
+|#FEF5E7|Nhân viên quầy|
+
+' ==============================================================================
+' GIAI ĐOẠN 1: DUYỆT THỰC ĐƠN, TÙY BIẾN MÓN & QUẢN LÝ GIỎ HÀNG
+' ==============================================================================
+|Khách hàng|
+start
+:Mở ứng dụng BrewLite và xem Thực đơn;
+
+|Hệ thống BrewLite|
+:Tải và hiển thị Thực đơn\n(hỗ trợ lọc theo danh mục & tìm kiếm món);
+
+|Khách hàng|
+repeat
+  :Chọn xem chi tiết một món;
+  |Hệ thống BrewLite|
+  if (Món còn hàng?) then (Hết hàng)
+    :Khóa nút "Thêm vào giỏ" & hiển thị "Tạm hết hàng";
+  else (Còn hàng)
+    |Khách hàng|
+    :Chọn kích cỡ (Nhỏ/Vừa/Lớn), lượng đường/đá,\nmón thêm (Topping) & ghi chú riêng;\nNhấn "Thêm vào giỏ";
+    |Hệ thống BrewLite|
+    :Lưu món vào giỏ hàng;\nTính lại tổng tiền & cập nhật số lượng trên giỏ;
+  endif
+  |Khách hàng|
+repeat while (Tiếp tục chọn thêm món?) is (Có) not (Vào giỏ hàng)
+
+|Khách hàng|
+:Mở Giỏ hàng, chỉnh số lượng hoặc xóa món;\nNhấn "Tiến hành đặt hàng";
+
+' ==============================================================================
+' GIAI ĐOẠN 2: XÁC THỰC TÀI KHOẢN & KHỞI TẠO ĐƠN HÀNG
+' ==============================================================================
+|Hệ thống BrewLite|
+if (Khách hàng đã đăng nhập?) then (Chưa)
+  :Chuyển sang màn hình Đăng nhập / Đăng ký;
+  |Khách hàng|
+  :Nhập thông tin tài khoản hoặc đăng ký mới;
+  |Hệ thống BrewLite|
+  :Kiểm tra, xác thực tài khoản và ghi nhận phiên đăng nhập;\nHiển thị số dư điểm thưởng hiện có;
+else (Rồi)
+  |Hệ thống BrewLite|
+endif
+
+:Hiển thị màn hình Xác nhận đơn hàng\nkèm mục Đổi điểm & Mã giảm giá;
+
+|Khách hàng|
+:Chọn hình thức nhận (Mang đi / Tại quán),\nchọn số điểm muốn đổi (1 điểm = 1.000đ)\nvà nhấn "Đặt đồ uống";
+
+|Hệ thống BrewLite|
+:Khóa nút đặt hàng (tránh bấm nhầm nhiều lần);\nTính toán lại tổng tiền và ưu đãi giảm giá;
+:Kiểm tra & giữ tồn kho nguyên liệu,\nkiểm tra số dư điểm thưởng\n(tránh lỗi khi nhiều người cùng đặt);
+
+if (Đủ nguyên liệu &\nđiểm thưởng hợp lệ?) then (Không đủ / Lỗi)
+  :Hủy giữ chỗ tạm thời & mở lại nút đặt hàng;\nThông báo hết món hoặc điểm không hợp lệ;
+  stop
+else (Hợp lệ)
+  |Hệ thống BrewLite|
+  :Trừ tồn kho & trừ điểm thưởng đã đổi;\nTạo đơn hàng ở trạng thái "Chờ thanh toán";
+  :Làm sạch giỏ hàng & chuyển sang màn hình Thanh toán;
+endif
+
+' ==============================================================================
+' GIAI ĐOẠN 3: THANH TOÁN, HỦY ĐƠN & CHỐNG TRỪ TIỀN TRÙNG LẶP
+' ==============================================================================
+|Khách hàng|
+if (Chọn hủy đơn khi đang\nchờ thanh toán?) then (Hủy đơn)
+  |Hệ thống BrewLite|
+  :Chuyển đơn sang trạng thái "Đã hủy";\nHoàn trả lại tồn kho & điểm đã giữ;\nHiển thị thông báo đơn hàng đã hủy;
+  stop
+else (Thanh toán)
+  |Khách hàng|
+  :Chọn phương thức thanh toán\n(Thẻ ngân hàng / Ví điện tử) & nhấn "Thanh toán";
+endif
+
+|Hệ thống BrewLite|
+:Tạo mã giao dịch duy nhất & khóa nút thanh toán;
+
+if (Yêu cầu thanh toán này\nđã được xử lý trong 24 giờ?) then (Đã xử lý)
+  :Trả kết quả giao dịch trước đó\n(Ngăn chặn trừ tiền trùng lặp lần hai);
+else (Chưa xử lý)
+  |Hệ thống BrewLite|
+  if (Đơn đang chờ thanh toán &\ntrong hạn 15 phút?) then (Quá hạn / Lỗi)
+    :Hoàn trả tồn kho & chuyển đơn sang "Đã hủy";\nThông báo đơn hàng đã quá hạn thanh toán;
+    stop
+  else (Hợp lệ)
+  endif
+
+  |Cổng thanh toán|
+  :Xử lý giao dịch qua\nThẻ ngân hàng / Ví điện tử;
+
+  |Hệ thống BrewLite|
+  if (Thanh toán\nthành công?) then (Thất bại)
+    :Ghi nhận giao dịch thất bại;\nGiữ nguyên đơn ở trạng thái "Chờ thanh toán";\nBáo lỗi thanh toán & cho phép thử lại;
+    stop
+  else (Thành công)
+    |Hệ thống BrewLite|
+    :Ghi nhận thanh toán thành công;\nChuyển đơn sang trạng thái "Đang pha chế";
+  endif
+endif
+
+' ==============================================================================
+' GIAI ĐOẠN 4: BIÊN NHẬN, PHA CHẾ, THEO DÕI TIẾN TRÌNH & TÍCH ĐIỂM
+' ==============================================================================
+|Hệ thống BrewLite|
+:Chuyển sang màn hình Biên nhận đơn hàng;\nHiển thị thanh tiến trình "Đang pha chế"\nvà tự động cập nhật trạng thái;
+
+|Nhân viên quầy|
+:Tiếp nhận đơn "Đang pha chế" trên danh sách chờ;\nPha chế theo kích cỡ, Topping & ghi chú riêng;
+:Hoàn tất pha chế & xác nhận "Sẵn sàng";
+
+|Hệ thống BrewLite|
+:Cập nhật trạng thái đơn sang "Sẵn sàng nhận";\nTự động cập nhật thanh tiến trình cho khách;
+
+|Khách hàng|
+:Nhận thông báo đồ uống đã sẵn sàng;\nĐến quầy đọc mã đơn & nhận đồ uống;
+
+|Nhân viên quầy|
+:Bàn giao đồ uống & xác nhận "Hoàn thành";
+
+|Hệ thống BrewLite|
+:Cập nhật trạng thái đơn sang "Hoàn thành";\nCộng điểm thưởng (10.000đ = 1 điểm) & lưu lịch sử tích điểm;\nHiển thị "Hoàn thành", cập nhật số dư điểm & lưu Lịch sử đơn;
+
+|Khách hàng|
+:Xem biên nhận hoàn tất, lịch sử đơn hàng\nvà số dư điểm thưởng mới;
+stop
+
+@enduml
