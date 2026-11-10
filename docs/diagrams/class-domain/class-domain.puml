@@ -142,6 +142,7 @@ class LoyaltyTransaction {
 
 class Promotion {
   - String promotionId
+  - String promotionCode
   - String description
   - Double minimumOrderAmount
   - Double discountAmount
@@ -167,10 +168,7 @@ class RecipeItems {
   + getRequiredAmount(): Integer
 }
 
-class InventoryService {
-  + checkAndReserveStock(order: Order): Boolean 
-  + releaseStock(order: Order): void
-}
+
 
 ' --- Relationships ---
 
@@ -212,7 +210,6 @@ Product "1" o-- "*" RecipeItems : mượn định nghĩa
 Size "1" o-- "*" RecipeItems : phân loại theo size
 RecipeItems "*" --> "1" Ingredient : tiêu thụ 
 
-' Concurrency & Inventory management
-Order "1" --> "1" InventoryService : ủy quyền 
+
 
 @enduml
