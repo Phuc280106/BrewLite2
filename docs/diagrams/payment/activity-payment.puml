@@ -35,11 +35,20 @@ if () then (không)
 else (có)
 endif
 
--> Key đã xử lý\ntrong 24 giờ?;
+-> Key (của khách này)\nđã xử lý trong 24 giờ?;
 if () then (có)
-  :Trả kết quả cũ\n(200 OK, không\ntrừ tiền lần 2);
+  -> Kết quả cũ\nlà SUCCESS?;
+  if () then (SUCCESS)
+    :Trả kết quả cũ\n(200 OK, không\ntrừ tiền lần 2);
+  else (FAILED)
+    :Trả kết quả FAILED cũ\n(200 OK, không gọi cổng lại);
+
+    |Khách hàng|
+    :Xem lỗi, thanh toán lại\n(sinh key mới);
+    stop
+  endif
 else (chưa)
-  -> Đơn hợp lệ\nvà PENDING?;
+  -> Đơn hợp lệ, PENDING\nvà chưa quá 15 phút?;
   if () then (không)
     :Từ chối,\nđơn không hợp lệ;
     stop
@@ -57,7 +66,7 @@ else (chưa)
     :Tạo Payment FAILED,\ngiữ đơn PENDING, trả lỗi;
 
     |Khách hàng|
-    :Xem lỗi,\nthanh toán lại;
+    :Xem lỗi, thanh toán lại\n(sinh key mới);
     stop
   endif
 endif
