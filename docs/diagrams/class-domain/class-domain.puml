@@ -1,4 +1,4 @@
-@startuml
+@startuml class-domain
 
 ' --- Direct Enum Definitions ---
 enum OrderStatus {
@@ -16,7 +16,7 @@ enum PaymentStatus {
   FAILED
 }
 
-enum LoaiGiaoDichKhuyenMai {
+enum LoyaltyTransactionType {
   EARN
   REDEEM
 }
@@ -46,11 +46,11 @@ class Product {
   - String categoryId
   - String name
   - String description
-  - Double basePrice
+  - Decimal basePrice
   - String imageUrl
   - Integer version  
   + getProductId(): String
-  + getBasePrice(): Double
+  + getBasePrice(): Decimal
   + calculateAvailableStock(sizeId: String): Integer 
   + isInStock(sizeId: String): Boolean
 }
@@ -58,15 +58,15 @@ class Product {
 class Size {
   - String sizeId
   - String name
-  - Double priceAdjustment
-  + getPriceAdjustment(): Double
+  - Decimal priceAdjustment
+  + getPriceAdjustment(): Decimal
 }
 
 class Topping {
   - String toppingId
   - String name
-  - Double price
-  + getPrice(): Double
+  - Decimal price
+  + getPrice(): Decimal
 }
 
 class Cart {
@@ -75,20 +75,24 @@ class Cart {
   - DateTime updatedAt
   + addItem(item: CartItem): void
   + removeItem(cartItemId: String): void
-  + updateQuantity(cartItem String, quantity: Integer): void
+  + updateQuantity(cartItemId: String, quantity: Integer): void
   + clearCart(): void
-  + calculateTotal(): Double
+  + calculateTotal(): Decimal
 }
 
 class CartItem {
   - String cartItemId
+  - String cartId
+  - String productId
+  - String sizeId
   - Integer quantity
-  + getSubtotal(): Double
+  + getSubtotal(): Decimal
 }
 
 class Order {
   - String orderId
   - String userId
+  - String promotionId
   - OrderStatus status
   - Decimal totalAmount
   - Decimal discountAmount
@@ -98,16 +102,18 @@ class Order {
   + getStatus(): OrderStatus
   + updateStatus(newStatus: OrderStatus): void
   + cancelOrder(): void
-  + calculateFinalAmount(): Double
+  + calculateFinalAmount(): Decimal
 }
 
 class OrderItem {
   - String orderItemId
+  - String orderId
   - String productId
+  - String sizeId
   - String productName
-  - Double unitPrice 
+  - Decimal unitPrice 
   - Integer quantity
-  + getSubtotal(): Double
+  + getSubtotal(): Decimal
 }
 
 class Payment {
@@ -117,7 +123,7 @@ class Payment {
   - PaymentStatus status
   - String transactionId
   - String idempotencyKey
-  - Double amount
+  - Decimal amount
   - DateTime createdAt
   + processPayment(): Boolean
 }
@@ -135,7 +141,7 @@ class LoyaltyTransaction {
   - String transactionId
   - String loyaltyId
   - String orderId
-  - Enum LoaiGiaoDichKhuyenMai 
+  - LoyaltyTransactionType type
   - Integer pointsAmount
   - DateTime createdAt
 }
@@ -144,10 +150,10 @@ class Promotion {
   - String promotionId
   - String promotionCode
   - String description
-  - Double minimumOrderAmount
-  - Double discountAmount
+  - Decimal minimumOrderAmount
+  - Decimal discountAmount
   - Integer discountPercentage
-  + getPromotion(id: String): void
+  + getPromotion(id: String): Promotion
 }
 
 class Ingredient {
@@ -164,11 +170,10 @@ class RecipeItems {
   - String recipeId
   - String productId
   - String sizeId
+  - String ingredientId
   - Integer requiredAmount
   + getRequiredAmount(): Integer
 }
-
-
 
 ' --- Relationships ---
 
@@ -179,7 +184,7 @@ Category "1" <-- "*" Product : thuộc về
 User "1" --> "0..1" Cart : sở hữu
 User "1" --> "0..*" Order : tạo
 User "1" --> "0..1" Loyalty : có
-User "1..*" --> "0..*" Promotion : sử dụng
+User "0..*" --> "0..*" Promotion : sử dụng
 
 ' Cart Composition
 Cart "1" *-- "0..*" CartItem : chứa
@@ -187,7 +192,7 @@ Cart "1" *-- "0..*" CartItem : chứa
 ' Order Composition & Payment
 Order "1" *-- "1..*" OrderItem : bao gồm
 Order "1" *-- "0..*" Payment : thanh toán
-Order "1..*" o-- "1" Promotion : áp dụng
+Order "0..*" o-- "0..1" Promotion : áp dụng
 
 ' Line Item Snapshots & Selections
 CartItem "*" --> "1" Product : tham chiếu
@@ -200,16 +205,15 @@ OrderItem "*" --> "0..*" Topping : ghi nhận trạng thái
 
 ' Loyalty Composition
 Loyalty "1" *-- "0..*" LoyaltyTransaction : tạo ra
+Order "0..1" <-- "0..*" LoyaltyTransaction : phát sinh từ
 
 ' Product Options (Aggregation)
 Product "*" o-- "*" Size : có
 Product "*" o-- "*" Topping : có thể thêm
 
 ' Recipe & Ingredient Relationships (Stock Calculation)
-Product "1" o-- "*" RecipeItems : mượn định nghĩa 
+Product "1" o-- "*" RecipeItems : định nghĩa công thức
 Size "1" o-- "*" RecipeItems : phân loại theo size
 RecipeItems "*" --> "1" Ingredient : tiêu thụ 
-
-
 
 @enduml
