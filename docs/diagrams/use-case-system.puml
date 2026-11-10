@@ -1,0 +1,116 @@
+@startuml usecase_tong_quat_brewlite
+title Hệ thống BrewLite - Sơ đồ Use Case Tổng Quát
+
+' --- Cấu hình giao diện chuẩn đen trắng (Monochrome UML 2.5) ---
+skinparam monochrome true
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam actorStyle stickman
+skinparam roundCorner 10
+skinparam linetype ortho
+
+' --- Khung hệ thống duy nhất ---
+rectangle "Hệ thống BrewLite" {
+
+    ' ================= KHU VỰC TRÊN (MENU & MÓN) =================
+    usecase "Lọc danh mục" as UC_LocDM
+    usecase "Xem menu" as UC_XemMenu
+    usecase "Xem chi tiết món" as UC_XemChiTiet
+    usecase "Tùy biến món" as UC_TuyBien
+    usecase "Chọn Size / Topping" as UC_ChonTopping
+
+    UC_LocDM .right.> UC_XemMenu : <<extend>>
+    UC_TuyBien .right.> UC_ChonTopping : <<include>>
+
+    ' ================= KHU VỰC Ở GIỮA =================
+    ' Phía bên trái (Giỏ hàng & Đặt hàng)
+    usecase "Khóa tồn kho" as UC_KhoaKho
+    usecase "Khởi tạo đơn hàng" as UC_KhoiTaoDon
+    usecase "Quản lý giỏ hàng" as UC_QuanLyGio
+
+    UC_KhoiTaoDon .left.> UC_KhoaKho : <<include>>
+
+    ' Actor Khách hàng đặt ở trung tâm
+    actor "Khách hàng\n(Customer)" as Customer
+
+    ' Phía bên phải (Đơn hàng)
+    usecase "Xem lịch sử đơn" as UC_LichSuDon
+    usecase "Theo dõi trạng thái" as UC_TheoDoiTT
+    usecase "Xem danh sách đơn" as UC_XemDSDon
+    usecase "Cập nhật trạng thái" as UC_CapNhatTT
+
+    ' ================= KHU VỰC DƯỚI =================
+    ' Phía dưới bên trái (Tài khoản)
+    usecase "Đăng ký tài khoản" as UC_DangKy
+    usecase "Đăng nhập" as UC_DangNhap
+    usecase "Xác thực JWT" as UC_XacThucJWT
+
+    UC_DangNhap .right.> UC_XacThucJWT : <<include>>
+
+    ' Phía dưới ở giữa (Loyalty)
+    usecase "Đổi điểm giảm giá" as UC_DoiDiem
+    usecase "Tích lũy điểm thưởng" as UC_TichDiem
+
+    ' Phía dưới bên phải (Thanh toán)
+    usecase "Thanh toán đơn hàng" as UC_ThanhToan
+}
+
+' Actor Nhân viên nằm ngoài hệ thống, bên phải
+actor "Nhân viên" as Staff
+
+' ================= NEO ĐỊNH VỊ KHÔNG GIAN (GIỮ NGUYÊN BỐ CỤC) =================
+' Hàng trên
+UC_XemMenu -[hidden]right-> UC_XemChiTiet
+UC_XemChiTiet -[hidden]right-> UC_TuyBien
+
+' Từ trên xuống giữa
+UC_LocDM -[hidden]down-> UC_KhoaKho
+UC_XemChiTiet -[hidden]down-> Customer
+UC_ChonTopping -[hidden]down-> UC_XemDSDon
+
+' Hàng giữa
+UC_KhoaKho -[hidden]down-> UC_QuanLyGio
+UC_KhoiTaoDon -[hidden]right-> Customer
+Customer -[hidden]right-> UC_LichSuDon
+UC_LichSuDon -[hidden]down-> UC_TheoDoiTT
+UC_XemDSDon -[hidden]down-> UC_CapNhatTT
+UC_LichSuDon -[hidden]right-> UC_XemDSDon
+UC_XemDSDon -[hidden]right-> Staff
+
+' Từ giữa xuống dưới
+UC_QuanLyGio -[hidden]down-> UC_DangKy
+Customer -[hidden]down-> UC_DoiDiem
+UC_TheoDoiTT -[hidden]down-> UC_ThanhToan
+
+' Hàng dưới
+UC_DangKy -[hidden]down-> UC_DangNhap
+UC_XacThucJWT -[hidden]right-> UC_DoiDiem
+UC_DoiDiem -[hidden]right-> UC_TichDiem
+UC_TichDiem -[hidden]right-> UC_ThanhToan
+
+' ================= DÂY LIÊN KẾT TỎA TỪ CUSTOMER =================
+' Lên trên
+Customer -up-> UC_XemMenu
+Customer -up-> UC_XemChiTiet
+Customer -up-> UC_TuyBien
+
+' Sang trái
+Customer -left-> UC_KhoiTaoDon
+Customer -left-> UC_QuanLyGio
+
+' Sang phải
+Customer -right-> UC_LichSuDon
+Customer -right-> UC_TheoDoiTT
+
+' Xuống dưới
+Customer -down-> UC_DangKy
+Customer -down-> UC_DangNhap
+Customer -down-> UC_DoiDiem
+Customer -down-> UC_TichDiem
+Customer -down-> UC_ThanhToan
+
+' Liên kết của Nhân viên
+Staff -left-> UC_XemDSDon
+Staff -left-> UC_CapNhatTT
+
+@enduml
