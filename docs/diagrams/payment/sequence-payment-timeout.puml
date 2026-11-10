@@ -14,14 +14,14 @@ skinparam sequence {
     ResponseMessageBelowArrow true
 }
 
-participant "Bộ lập lịch\n(@Cron / Scheduler)" as Scheduler
-control "PaymentsService\n/ OrdersService" as Service
-database "Cơ sở dữ liệu\n(Order, Ingredient)" as DB
+participant "OrderExpiryScheduler\n(@Cron)" as Scheduler
+control "OrdersService" as Service
+database "Cơ sở dữ liệu\n(Order, OrderItem, Ingredient)" as DB
 
 loop Định kỳ (ví dụ mỗi phút)
     Scheduler -> Service : cancelExpiredOrders()
     activate Service
-    Service -> DB : SELECT Order WHERE status = PENDING\nAND createdAt < now() - 15 phút
+    Service -> DB : SELECT Order (kèm OrderItem) WHERE status = PENDING\nAND createdAt < now() - 15 phút
     activate DB
     DB --> Service : Danh sách đơn quá hạn
     deactivate DB
@@ -29,7 +29,7 @@ loop Định kỳ (ví dụ mỗi phút)
     loop Với mỗi đơn quá hạn
         Service -> DB : BEGIN TRANSACTION
         activate DB
-        Service -> DB : UPDATE Ingredient SET stock = stock + số lượng đã giữ
+        Service -> DB : UPDATE Ingredient SET stock = stock + số lượng đã giữ\n(tính theo OrderItem của đơn)
         Service -> DB : UPDATE Order SET status = CANCELLED
         Service -> DB : COMMIT
         DB --> Service : Đã hoàn kho & hủy đơn

@@ -1,0 +1,169 @@
+@startuml
+title Class Diagram - Thanh toán mô phỏng & Chống trùng lặp (FR-06)
+
+skinparam backgroundColor white
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam linetype ortho
+skinparam ArrowColor #2C3E50
+skinparam class {
+    BorderColor #2980B9
+    BackgroundColor #EBF5FB
+    ArrowColor #2C3E50
+}
+
+' ================= TẦNG GIAO DIỆN (apps/web) =================
+class CheckoutPage <<boundary>> {
+    -selectedMethod: PaymentMethod
+    -idempotencyKey: String
+    -isProcessing: boolean
+    +selectMethod(method: PaymentMethod): void
+    +generateIdempotencyKey(): String
+    +onClickPay(): void
+    +showError(message: String): void
+    +navigateToReceipt(orderId: String): void
+}
+
+' ================= TẦNG API (apps/api) =================
+class JwtAuthGuard <<guard>> {
+    +canActivate(context: ExecutionContext): boolean
+}
+
+class PaymentsController <<controller>> {
+    +createPayment(dto: ProcessPaymentDto, idempotencyKey: String, userId: String): Payment
+}
+
+class ProcessPaymentDto <<dto>> {
+    +orderId: String
+    +method: PaymentMethod
+}
+
+class PaymentsService <<service>> {
+    +processPayment(userId: String, orderId: String, method: PaymentMethod, key: String): Payment
+    -findByIdempotencyKey(key: String, userId: String): Payment
+    -findOrder(orderId: String): Order
+    -validateOrder(order: Order, userId: String): void
+    -saveSuccessPaymentAndMarkPreparing(order: Order, key: String, method: PaymentMethod): Payment
+    -saveFailedPayment(order: Order, key: String, method: PaymentMethod): Payment
+}
+
+class InvalidOrderException <<exception>> {
+    +message: String
+}
+
+class MockPaymentGateway <<service>> {
+    +charge(amount: double, method: PaymentMethod): GatewayResult
+}
+
+class GatewayResult {
+    -status: GatewayStatus
+    +isSuccess(): boolean
+}
+
+enum GatewayStatus {
+    SUCCESS
+    DECLINED
+}
+
+class OrdersService <<service>> {
+    +cancelExpiredOrders(): void
+    -findExpiredPendingOrders(minutes: int): List<Order>
+    -restoreStock(order: Order): void
+    -cancelOrder(order: Order): void
+}
+
+class OrderExpiryScheduler <<scheduler>> {
+    +handleCron(): void
+}
+
+' ================= TẦNG DOMAIN / DỮ LIỆU =================
+class User {
+    -id: String
+    -email: String
+}
+
+class Order <<entity>> {
+    -id: String
+    -userId: String
+    -totalAmount: double
+    -status: OrderStatus
+    -createdAt: DateTime
+    +isPending(): boolean
+    +isExpired(minutes: int): boolean
+    +belongsTo(userId: String): boolean
+}
+
+class OrderItem <<entity>> {
+    -id: String
+    -productId: String
+    -quantity: int
+}
+
+class Ingredient <<entity>> {
+    -id: String
+    -name: String
+    -stock: int
+    +increaseStock(quantity: int): void
+}
+
+class Payment <<entity>> {
+    -id: String
+    -orderId: String
+    -userId: String
+    -idempotencyKey: String {unique}
+    -method: PaymentMethod
+    -amount: double
+    -status: PaymentStatus
+    -createdAt: DateTime
+    +isSuccess(): boolean
+}
+
+enum PaymentMethod {
+    MOCK_CARD
+    MOCK_WALLET
+}
+
+enum PaymentStatus {
+    SUCCESS
+    FAILED
+}
+
+enum OrderStatus {
+    PENDING
+    PREPARING
+    READY
+    COMPLETED
+    CANCELLED
+}
+
+note right of OrderItem
+  Số lượng nguyên liệu đã giữ kho (FR-05)
+  được suy ra từ OrderItem khi hoàn kho.
+end note
+
+' ================= QUAN HỆ =================
+CheckoutPage ..> PaymentsController : gọi POST /api/v1/payments
+PaymentsController ..> JwtAuthGuard : xác thực JWT
+PaymentsController ..> ProcessPaymentDto : nhận & validate
+PaymentsController --> PaymentsService : ủy quyền xử lý
+PaymentsService --> MockPaymentGateway : gọi charge()
+MockPaymentGateway ..> GatewayResult : trả về
+GatewayResult ..> GatewayStatus
+PaymentsService ..> Payment : tạo & truy vấn
+PaymentsService ..> Order : kiểm tra & chuyển PREPARING
+PaymentsService ..> InvalidOrderException : ném khi đơn không hợp lệ
+
+OrderExpiryScheduler --> OrdersService : gọi cancelExpiredOrders()
+OrdersService ..> Order : tìm & chuyển CANCELLED
+OrdersService ..> OrderItem : đọc số lượng đã giữ
+OrdersService ..> Ingredient : hoàn kho
+
+User "1" -- "0..*" Order : đặt
+Order "1" *-- "1..*" OrderItem : gồm
+Order "1" -- "0..*" Payment : có lượt thanh toán
+Payment ..> PaymentMethod
+Payment ..> PaymentStatus
+Order ..> OrderStatus
+ProcessPaymentDto ..> PaymentMethod
+
+@enduml
