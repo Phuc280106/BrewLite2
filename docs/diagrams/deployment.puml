@@ -1,0 +1,101 @@
+@startuml
+title Sơ đồ Triển khai Hệ thống BrewLite (UML Deployment Diagram – Task 3.2)
+top to bottom direction
+
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam defaultFontSize 12
+skinparam nodesep 25
+skinparam ranksep 30
+
+skinparam node {
+    BackgroundColor #FFFFFF
+    BorderColor #2C3E50
+    BorderThickness 1.5
+}
+skinparam artifact {
+    BackgroundColor #FEF9E7
+    BorderColor #B7950B
+}
+skinparam database {
+    BackgroundColor #EBF5FB
+    BorderColor #2980B9
+}
+skinparam frame {
+    BackgroundColor #FFFFFF
+    BorderColor #2C3E50
+    BorderThickness 1.5
+}
+skinparam ArrowColor #2C3E50
+
+' ============================================================================
+' TẦNG 1: LOCAL, CI/CD & CLIENT
+' ============================================================================
+frame "Local Development" as LocalEnv {
+    node "Developer PC\n(Docker Compose)" <<device>> as DevPC {
+        artifact "docker-compose.yml & .env\n• web (:3000)\n• api (:3001)\n• postgres (:5432)" <<deploymentSpec>> as LocalCompose
+    }
+}
+
+frame "CI/CD & Registry (GitHub)" as CICDEnv {
+    node "GitHub Actions & GHCR" <<executionEnvironment>> as GHActions {
+        artifact "ci.yml & cd.yml\n[Secrets: DEPLOY_HOOK]" <<artifact>> as Workflows
+        artifact "ghcr.io/brewlite-api:latest\n(Docker Image)" <<artifact>> as DockerImg
+    }
+}
+
+node "Client Device (Mobile / PC)" <<device>> as ClientDevice {
+    node "Web Browser / PWA" <<executionEnvironment>> as Browser {
+        artifact "Next.js Client Bundle\n• cartStore.ts (Zustand)\n• localStorage (Cart, JWT)" <<artifact>> as ClientApp
+    }
+}
+
+' ============================================================================
+' TẦNG 2: MÔI TRƯỜNG PRODUCTION (VERCEL + RENDER CLOUD)
+' ============================================================================
+frame "Cloud Production Environment" as ProdEnv {
+
+    ' Frontend CDN
+    node "Vercel Edge CDN" <<device>> as VercelNode {
+        node "Next.js Edge Runtime" <<executionEnvironment>> as VercelEnv {
+            artifact "brewlite-web (apps/web)\n[Env: NEXT_PUBLIC_API_URL]" <<artifact>> as WebApp
+        }
+    }
+
+    ' Mạng nội bộ Render (Private VPC)
+    frame "Render Private Network (VPC - Internal Only)" as RenderVPC {
+
+        ' Backend Container
+        node "Render App Server" <<device>> as RenderNode {
+            node "Docker Container (Node.js 20)" <<executionEnvironment>> as ApiContainer {
+                artifact "brewlite-api (Port 3001 - apps/api)\n• Modules: Products, Auth, Orders, Payments, Loyalty\n• Prisma ORM Client\n• Health Check: GET /api/v1/health\n• Logs: stdout/stderr Audit Stream" <<artifact>> as ApiApp
+                artifact "Render Secret Env Vars\n[DATABASE_URL, JWT_SECRET,\nCORS_ORIGIN, API_PORT=3001]" <<deploymentSpec>> as ApiEnv
+            }
+        }
+
+        ' PostgreSQL + Persistent Storage
+        node "Render Database Server" <<device>> as DbNode {
+            database "PostgreSQL 16 (Port 5432)" <<executionEnvironment>> as PostgresDB {
+                artifact "brewlite_db\n• Row Lock (SELECT FOR UPDATE)\n• Idempotency & CHECK (points >= 0)" <<artifact>> as DbSchema
+            }
+            node "Persistent SSD Volume\n(/var/lib/postgresql/data)" <<device>> as SSDVolume {
+                artifact "PGDATA & Daily Backups" <<artifact>> as PgData
+            }
+            PostgresDB -right- SSDVolume : "<<mount>>"
+        }
+    }
+}
+
+' ============================================================================
+' ĐƯỜNG TRUYỀN THÔNG (COMMUNICATION PATHS)
+' ============================================================================
+DevPC "1" -right- "1" GHActions : "<<HTTPS :443>>\ngit push / PR"
+GHActions ..> VercelNode : "<<deploy>>\nWebhook"
+GHActions ..> ApiContainer : "<<deploy>>\nPull Image & Probe /health"
+
+ClientDevice "*" -down- "1" VercelNode : "<<HTTPS / TLS 1.3 :443>>\nPWA & SSR HTML"
+ClientDevice "*" -down- "1" RenderNode : "<<HTTPS / TLS 1.3 :443 -> 3001>>\nREST API (JWT, Idempotency-Key)"
+VercelNode "1" -right- "1" RenderNode : "<<HTTPS :443>>\nSSR Fetch"
+RenderNode "1..*" -down- "1" DbNode : "<<TCP/IP + SSL :5432>>\nPrivate VPC"
+
+@enduml
