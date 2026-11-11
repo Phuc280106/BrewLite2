@@ -1,0 +1,219 @@
+@startuml class-domain
+
+' --- Direct Enum Definitions ---
+enum OrderStatus {
+  PENDING
+  PREPARING
+  READY
+  COMPLETED
+  CANCELLED
+  PAID
+  PAYMENT_FAILED
+}
+
+enum PaymentStatus {
+  SUCCESS
+  FAILED
+}
+
+enum LoyaltyTransactionType {
+  EARN
+  REDEEM
+}
+
+' --- Core Domain Classes ---
+
+class User {
+  - String userId
+  - String name
+  - String email
+  - String passwordHash
+  - String role 
+  + getUserId(): String
+  + getRole(): String
+}
+
+class Category {
+  - String categoryId
+  - String name
+  - String description
+  + getCategoryId(): String
+  + getName(): String
+}
+
+class Product {
+  - String productId
+  - String categoryId
+  - String name
+  - String description
+  - Decimal basePrice
+  - String imageUrl
+  - Integer version  
+  + getProductId(): String
+  + getBasePrice(): Decimal
+  + calculateAvailableStock(sizeId: String): Integer 
+  + isInStock(sizeId: String): Boolean
+}
+
+class Size {
+  - String sizeId
+  - String name
+  - Decimal priceAdjustment
+  + getPriceAdjustment(): Decimal
+}
+
+class Topping {
+  - String toppingId
+  - String name
+  - Decimal price
+  + getPrice(): Decimal
+}
+
+class Cart {
+  - String cartId
+  - String userId
+  - DateTime updatedAt
+  + addItem(item: CartItem): void
+  + removeItem(cartItemId: String): void
+  + updateQuantity(cartItemId: String, quantity: Integer): void
+  + clearCart(): void
+  + calculateTotal(): Decimal
+}
+
+class CartItem {
+  - String cartItemId
+  - String cartId
+  - String productId
+  - String sizeId
+  - Integer quantity
+  + getSubtotal(): Decimal
+}
+
+class Order {
+  - String orderId
+  - String userId
+  - String promotionId
+  - OrderStatus status
+  - Decimal totalAmount
+  - Decimal discountAmount
+  - Integer pointsRedeemed
+  - DateTime createdAt
+  + getOrderId(): String
+  + getStatus(): OrderStatus
+  + updateStatus(newStatus: OrderStatus): void
+  + cancelOrder(): void
+  + calculateFinalAmount(): Decimal
+}
+
+class OrderItem {
+  - String orderItemId
+  - String orderId
+  - String productId
+  - String sizeId
+  - String productName
+  - Decimal unitPrice 
+  - Integer quantity
+  + getSubtotal(): Decimal
+}
+
+class Payment {
+  - String paymentId
+  - String orderId
+  - String paymentMethod 
+  - PaymentStatus status
+  - String transactionId
+  - String idempotencyKey
+  - Decimal amount
+  - DateTime createdAt
+  + processPayment(): Boolean
+}
+
+class Loyalty {
+  - String loyaltyId
+  - String userId
+  - Integer points
+  + getPoints(): Integer
+  + addPoints(amount: Integer): void
+  + redeemPoints(amount: Integer): Boolean
+}
+
+class LoyaltyTransaction {
+  - String transactionId
+  - String loyaltyId
+  - String orderId
+  - LoyaltyTransactionType type
+  - Integer pointsAmount
+  - DateTime createdAt
+}
+
+class Promotion {
+  - String promotionId
+  - String promotionCode
+  - String description
+  - Decimal minimumOrderAmount
+  - Decimal discountAmount
+  - Integer discountPercentage
+  + getPromotion(id: String): Promotion
+}
+
+class Ingredient {
+  - String ingredientId
+  - String name
+  - String unit
+  - Integer stock
+  - Integer version  
+  + deductStock(amount: Integer, currentVersion: Integer): Boolean
+  + restoreStock(amount: Integer): void
+}
+
+class RecipeItems {
+  - String recipeId
+  - String productId
+  - String sizeId
+  - String ingredientId
+  - Integer requiredAmount
+  + getRequiredAmount(): Integer
+}
+
+' --- Relationships ---
+
+' Catalog & Category Relationship
+Category "1" <-- "*" Product : thuộc về
+
+' User Relationships
+User "1" --> "0..1" Cart : sở hữu
+User "1" --> "0..*" Order : tạo
+User "1" --> "0..1" Loyalty : có
+User "0..*" --> "0..*" Promotion : sử dụng
+
+' Cart Composition
+Cart "1" *-- "0..*" CartItem : chứa
+
+' Order Composition & Payment
+Order "1" *-- "1..*" OrderItem : bao gồm
+Order "1" *-- "0..*" Payment : thanh toán
+Order "0..*" o-- "0..1" Promotion : áp dụng
+
+' Line Item Snapshots & Selections
+CartItem "*" --> "1" Product : tham chiếu
+CartItem "*" --> "1" Size : lựa chọn
+CartItem "*" --> "0..*" Topping : bao gồm
+
+OrderItem "*" --> "1" Product : ghi nhận trạng thái
+OrderItem "*" --> "1" Size : ghi nhận trạng thái
+OrderItem "*" --> "0..*" Topping : ghi nhận trạng thái
+
+' Loyalty Composition
+Loyalty "1" *-- "0..*" LoyaltyTransaction : tạo ra
+Order "0..1" <-- "0..*" LoyaltyTransaction : phát sinh từ
+
+' Product Options (Aggregation)
+Product "*" o-- "*" Size : có
+Product "*" o-- "*" Topping : có thể thêm
+
+' Recipe & Ingredient Relationships (Stock Calculation)
+Product "1" o-- "*" RecipeItems : định nghĩa công thức
+Size "1" o-- "*" RecipeItems : phân loại theo size
+RecipeItems "*" --> "1" Ingredient : tiêu thụ 
+
+@enduml
