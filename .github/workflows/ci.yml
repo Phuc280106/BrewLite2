@@ -1,0 +1,122 @@
+name: CI - Install, Lint, Test, Build
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  api:
+    name: Backend API (apps/api)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check if apps/api/package.json exists
+        id: check_api
+        working-directory: .
+        run: |
+          if [ -f "apps/api/package.json" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "apps/api/package.json chưa tồn tại, tạm bỏ qua job API."
+          fi
+
+      - name: Setup Node.js
+        if: steps.check_api.outputs.exists == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: apps/api/package-lock.json
+
+      - name: Install dependencies
+        if: steps.check_api.outputs.exists == 'true'
+        run: |
+          if [ -f "package-lock.json" ]; then
+            npm ci
+          else
+            npm install
+          fi
+
+      - name: Generate Prisma Client (if schema exists)
+        if: steps.check_api.outputs.exists == 'true'
+        run: |
+          if [ -f "prisma/schema.prisma" ]; then
+            npx prisma generate
+          fi
+
+      - name: Lint
+        if: steps.check_api.outputs.exists == 'true'
+        run: npm run lint
+
+      - name: Unit Test
+        if: steps.check_api.outputs.exists == 'true'
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/brewlite
+          JWT_SECRET: ci-test-secret
+        run: npm test
+
+      - name: Build
+        if: steps.check_api.outputs.exists == 'true'
+        run: npm run build
+
+  web:
+    name: Frontend Web (apps/web)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check if apps/web/package.json exists
+        id: check_web
+        working-directory: .
+        run: |
+          if [ -f "apps/web/package.json" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "apps/web/package.json chưa tồn tại, tạm bỏ qua job Web."
+          fi
+
+      - name: Setup Node.js
+        if: steps.check_web.outputs.exists == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Install dependencies
+        if: steps.check_web.outputs.exists == 'true'
+        run: |
+          if [ -f "package-lock.json" ]; then
+            npm ci
+          else
+            npm install
+          fi
+
+      - name: Lint
+        if: steps.check_web.outputs.exists == 'true'
+        run: npm run lint
+
+      - name: Unit Test
+        if: steps.check_web.outputs.exists == 'true'
+        run: npm test
+
+      - name: Build
+        if: steps.check_web.outputs.exists == 'true'
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:3001/api/v1
+        run: npm run build
