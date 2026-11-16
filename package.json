@@ -1,0 +1,17 @@
+{
+  "name": "brewlite",
+  "private": true,
+  "workspaces": ["apps/web", "apps/api"],
+  "scripts": {
+    "dev": "concurrently \"npm:start:web\" \"npm:start:api\"",
+    "start:web": "npm --workspace=apps/web run dev",
+    "start:api": "npm --workspace=apps/api run dev",
+    "db:migrate": "npm --workspace=apps/api run migrate",
+    "db:seed": "npm --workspace=apps/api run seed",
+    "test:e2e": "playwright test"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "@playwright/test": "^1.45.0"
+  }
+}

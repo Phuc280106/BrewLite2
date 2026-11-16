@@ -1,0 +1,16 @@
+{
+  "name": "BrewLite Coffee & Drinks",
+  "short_name": "BrewLite",
+  "description": "BrewLite Coffee & Drinks Ordering Mobile-first PWA",
+  "start_url": "/menu",
+  "display": "standalone",
+  "background_color": "#0f0f11",
+  "theme_color": "#8A502F",
+  "icons": [
+    {
+      "src": "/icon.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    }
+  ]
+}

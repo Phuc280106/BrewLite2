@@ -1,0 +1,256 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ==========================================
+// 1. ENUMS (Định nghĩa trực tiếp từ class-domain.puml)
+// ==========================================
+
+enum OrderStatus {
+  PENDING
+  PREPARING
+  READY
+  COMPLETED
+  CANCELLED
+  PAID
+  PAYMENT_FAILED
+}
+
+enum PaymentStatus {
+  SUCCESS
+  FAILED
+}
+
+enum LoyaltyTransactionType {
+  EARN
+  REDEEM
+}
+
+// ==========================================
+// 2. CORE DOMAIN MODELS (Tuân thủ 100% class-domain.puml)
+// ==========================================
+
+// --- Class Category ---
+model Category {
+  categoryId  String    @id @default(uuid()) @map("category_id")
+  name        String    @unique
+  description String?
+  products    Product[] // Quan hệ: Category "1" <-- "*" Product
+
+  @@map("categories")
+}
+
+// --- Class Product ---
+model Product {
+  productId   String        @id @default(uuid()) @map("product_id")
+  categoryId  String        @map("category_id")
+  name        String
+  description String?
+  basePrice   Decimal       @map("base_price") @db.Decimal(10, 2)
+  imageUrl    String?       @map("image_url")
+  version     Int           @default(0) // Khóa lạc quan / Quản lý phiên bản tồn kho
+  
+  category    Category      @relation(fields: [categoryId], references: [categoryId])
+  sizes       Size[]        // Quan hệ: Product "*" o-- "*" Size
+  toppings    Topping[]     // Quan hệ: Product "*" o-- "*" Topping
+  cartItems   CartItem[]
+  orderItems  OrderItem[]
+  recipeItems RecipeItems[]
+
+  @@map("products")
+}
+
+// --- Class Size ---
+model Size {
+  sizeId          String        @id @default(uuid()) @map("size_id")
+  name            String
+  priceAdjustment Decimal       @map("price_adjustment") @db.Decimal(10, 2)
+  
+  products        Product[]     // Quan hệ: Product "*" o-- "*" Size
+  cartItems       CartItem[]
+  orderItems      OrderItem[]
+  recipeItems     RecipeItems[]
+
+  @@map("sizes")
+}
+
+// --- Class Topping ---
+model Topping {
+  toppingId  String      @id @default(uuid()) @map("topping_id")
+  name       String
+  price      Decimal     @db.Decimal(10, 2)
+  
+  products   Product[]   // Quan hệ: Product "*" o-- "*" Topping
+  cartItems  CartItem[]
+  orderItems OrderItem[]
+
+  @@map("toppings")
+}
+
+// --- Class User ---
+model User {
+  userId       String      @id @default(uuid()) @map("user_id")
+  name         String
+  email        String      @unique
+  passwordHash String      @map("password_hash")
+  role         String      @default("CUSTOMER")
+  
+  cart         Cart?       // Quan hệ: User "1" --> "0..1" Cart
+  orders       Order[]     // Quan hệ: User "1" --> "0..*" Order
+  loyalty      Loyalty?    // Quan hệ: User "1" --> "0..1" Loyalty
+  promotions   Promotion[] // Quan hệ: User "0..*" --> "0..*" Promotion
+
+  @@map("users")
+}
+
+// --- Class Cart & CartItem ---
+model Cart {
+  cartId    String     @id @default(uuid()) @map("cart_id")
+  userId    String     @unique @map("user_id")
+  updatedAt DateTime   @updatedAt @map("updated_at")
+  
+  user      User       @relation(fields: [userId], references: [userId])
+  items     CartItem[] // Quan hệ: Cart "1" *-- "0..*" CartItem
+
+  @@map("carts")
+}
+
+model CartItem {
+  cartItemId String    @id @default(uuid()) @map("cart_item_id")
+  cartId     String    @map("cart_id")
+  productId  String    @map("product_id")
+  sizeId     String    @map("size_id")
+  quantity   Int
+  
+  cart       Cart      @relation(fields: [cartId], references: [cartId], onDelete: Cascade)
+  product    Product   @relation(fields: [productId], references: [productId])
+  size       Size      @relation(fields: [sizeId], references: [sizeId])
+  toppings   Topping[] // Quan hệ: CartItem "*" --> "0..*" Topping
+
+  @@map("cart_items")
+}
+
+// --- Class Order & OrderItem ---
+model Order {
+  orderId             String               @id @default(uuid()) @map("order_id")
+  userId              String               @map("user_id")
+  promotionId         String?              @map("promotion_id")
+  status              OrderStatus          @default(PENDING)
+  totalAmount         Decimal              @map("total_amount") @db.Decimal(10, 2)
+  discountAmount      Decimal              @default(0) @map("discount_amount") @db.Decimal(10, 2)
+  pointsRedeemed      Int                  @default(0) @map("points_redeemed")
+  createdAt           DateTime             @default(now()) @map("created_at")
+  
+  user                User                 @relation(fields: [userId], references: [userId])
+  promotion           Promotion?           @relation(fields: [promotionId], references: [promotionId])
+  items               OrderItem[]          // Quan hệ: Order "1" *-- "1..*" OrderItem
+  payments            Payment[]            // Quan hệ: Order "1" *-- "0..*" Payment
+  loyaltyTransactions LoyaltyTransaction[] // Quan hệ: Order "0..1" <-- "0..*" LoyaltyTransaction
+
+  @@map("orders")
+}
+
+model OrderItem {
+  orderItemId String    @id @default(uuid()) @map("order_item_id")
+  orderId     String    @map("order_id")
+  productId   String    @map("product_id")
+  sizeId      String    @map("size_id")
+  productName String    @map("product_name")
+  unitPrice   Decimal   @map("unit_price") @db.Decimal(10, 2)
+  quantity    Int
+  
+  order       Order     @relation(fields: [orderId], references: [orderId], onDelete: Cascade)
+  product     Product   @relation(fields: [productId], references: [productId])
+  size        Size      @relation(fields: [sizeId], references: [sizeId])
+  toppings    Topping[] // Quan hệ: OrderItem "*" --> "0..*" Topping
+
+  @@map("order_items")
+}
+
+// --- Class Payment ---
+model Payment {
+  paymentId      String        @id @default(uuid()) @map("payment_id")
+  orderId        String        @map("order_id")
+  paymentMethod  String        @map("payment_method")
+  status         PaymentStatus @default(FAILED)
+  transactionId  String?       @map("transaction_id")
+  idempotencyKey String        @unique @map("idempotency_key")
+  amount         Decimal       @db.Decimal(10, 2)
+  createdAt      DateTime      @default(now()) @map("created_at")
+  
+  order          Order         @relation(fields: [orderId], references: [orderId])
+
+  @@map("payments")
+}
+
+// --- Class Loyalty & LoyaltyTransaction ---
+model Loyalty {
+  loyaltyId    String               @id @default(uuid()) @map("loyalty_id")
+  userId       String               @unique @map("user_id")
+  points       Int                  @default(0)
+  
+  user         User                 @relation(fields: [userId], references: [userId])
+  transactions LoyaltyTransaction[] // Quan hệ: Loyalty "1" *-- "0..*" LoyaltyTransaction
+
+  @@map("loyalties")
+}
+
+model LoyaltyTransaction {
+  transactionId String                 @id @default(uuid()) @map("transaction_id")
+  loyaltyId     String                 @map("loyalty_id")
+  orderId       String?                @map("order_id")
+  type          LoyaltyTransactionType
+  pointsAmount  Int                    @map("points_amount")
+  createdAt     DateTime               @default(now()) @map("created_at")
+  
+  loyalty       Loyalty                @relation(fields: [loyaltyId], references: [loyaltyId])
+  order         Order?                 @relation(fields: [orderId], references: [orderId])
+
+  @@map("loyalty_transactions")
+}
+
+// --- Class Promotion ---
+model Promotion {
+  promotionId        String   @id @default(uuid()) @map("promotion_id")
+  promotionCode      String   @unique @map("promotion_code")
+  description        String?
+  minimumOrderAmount Decimal  @map("minimum_order_amount") @db.Decimal(10, 2)
+  discountAmount     Decimal  @map("discount_amount") @db.Decimal(10, 2)
+  discountPercentage Int      @map("discount_percentage")
+  
+  orders             Order[]
+  users              User[]   // Quan hệ: User "0..*" --> "0..*" Promotion
+
+  @@map("promotions")
+}
+
+// --- Class Ingredient & RecipeItems (Quản lý tồn kho & công thức) ---
+model Ingredient {
+  ingredientId String        @id @default(uuid()) @map("ingredient_id")
+  name         String
+  unit         String
+  stock        Int           @default(0)
+  version      Int           @default(0) // Khóa dòng kiểm soát đồng thời
+  recipeItems  RecipeItems[]
+
+  @@map("ingredients")
+}
+
+model RecipeItems {
+  recipeId       String     @id @default(uuid()) @map("recipe_id")
+  productId      String     @map("product_id")
+  sizeId         String     @map("size_id")
+  ingredientId   String     @map("ingredient_id")
+  requiredAmount Int        @map("required_amount")
+  
+  product        Product    @relation(fields: [productId], references: [productId])
+  size           Size       @relation(fields: [sizeId], references: [sizeId])
+  ingredient     Ingredient @relation(fields: [ingredientId], references: [ingredientId])
+
+  @@map("recipe_items")
+}
