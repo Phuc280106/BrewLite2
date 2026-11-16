@@ -104,19 +104,27 @@ Một PR chỉ được phê duyệt (`Merge`) khi thỏa mãn:
 ## 5. Hướng dẫn Khởi chạy Dự án tại Local (Local Quickstart)
 
 ```bash
-# 1. Clone repository và thiết lập biến môi trường
+# 1. Thiết lập biến môi trường cho Docker Compose và Backend API
 cp .env.example .env
+cp .env.example apps/api/.env
+# (Trên Windows PowerShell, thay `cp` bằng `copy`)
 
 # 2. Khởi chạy cơ sở dữ liệu PostgreSQL qua Docker Compose
-docker-compose up -d postgres
+docker compose up -d postgres
 
-# 3. Chạy Migration và nạp dữ liệu mẫu (Seed Data)
-npm run db:migrate
-npm run db:seed
+# 3. Cài đặt, đẩy schema lên DB, nạp dữ liệu mẫu và chạy Backend API
+cd apps/api
+npm install
+npx prisma generate
+npx prisma db push
+npm run seed
+npm run start:dev
 
-# 4. Khởi chạy đồng thời Backend API và Frontend Web
+# 4. Mở một terminal mới để cài đặt và chạy Frontend Web
+cd apps/web
+npm install
 npm run dev
 ```
 - **Frontend Web (View):** `http://localhost:3000`
-- **Backend API (Controller & Model):** `http://localhost:3001`
+- **Backend API (Controller & Model):** `http://localhost:3001/api/v1`
 - **API Health Check:** `http://localhost:3001/api/v1/health`
