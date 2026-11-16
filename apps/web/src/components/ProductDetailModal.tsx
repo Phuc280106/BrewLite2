@@ -1,12 +1,16 @@
 import React, { useState } from 'react';
 import { Product, Size, Topping } from '@/types';
-import { X, Plus, Minus } from 'lucide-react';
+import { X, Plus, Minus, Check } from 'lucide-react';
+import { DEFAULT_PRODUCT_IMAGES, DrinkGraphicFallback } from './ProductCard';
 
 interface ProductDetailModalProps {
   product: Product;
   onClose: () => void;
   onAddToCart?: () => void;
 }
+
+const SUGAR_OPTIONS = ['0%', '30%', '50%', '70%', '100%'];
+const ICE_OPTIONS = ['Nóng', 'Không đá', '50% đá', '100% đá'];
 
 export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   product,
@@ -16,8 +20,12 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const [selectedSize, setSelectedSize] = useState<Size | undefined>(
     product.sizes?.[0]
   );
+  const [selectedSugar, setSelectedSugar] = useState<string>('50%');
+  const [selectedIce, setSelectedIce] = useState<string>('50% đá');
   const [selectedToppings, setSelectedToppings] = useState<Topping[]>([]);
-  const [quantity, setQuantity] = useState(1);
+  const [note, setNote] = useState<string>('');
+  const [quantity, setQuantity] = useState<number>(1);
+  const [imgError, setImgError] = useState(false);
 
   const toggleTopping = (topping: Topping) => {
     setSelectedToppings((prev) =>
@@ -40,145 +48,251 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     onClose();
   };
 
+  const resolvedImageUrl = product.imageUrl || DEFAULT_PRODUCT_IMAGES[product.name] || null;
+
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm animate-fadeIn">
-      <div className="bg-white w-full max-w-md rounded-t-3xl sm:rounded-2xl max-h-[90vh] flex flex-col overflow-hidden shadow-2xl">
-        {/* Header modal */}
-        <div className="relative p-4 border-b border-stone-100 flex items-center justify-between">
-          <h3 className="font-bold text-stone-900 text-lg line-clamp-1">
-            {product.name}
-          </h3>
-          <button
-            onClick={onClose}
-            className="p-1 rounded-full text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-[rgba(31,20,13,0.45)] backdrop-blur-sm p-0 sm:p-4 animate-fadeIn">
+      <div className="bg-white w-full max-w-md sm:max-w-3xl rounded-t-3xl sm:rounded-3xl max-h-[92vh] sm:max-h-[85vh] flex flex-col sm:flex-row overflow-hidden shadow-2xl relative border border-stone-100">
+        
+        {/* Nút đóng modal góc trên */}
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 z-20 w-8 h-8 rounded-full bg-black/10 hover:bg-black/20 text-stone-700 flex items-center justify-center transition backdrop-blur-xs"
+          aria-label="Đóng"
+        >
+          <X className="w-5 h-5" />
+        </button>
 
-        {/* Content body */}
-        <div className="p-4 overflow-y-auto space-y-4">
-          {product.imageUrl && (
-            <div className="relative w-full h-44 rounded-xl overflow-hidden bg-stone-100">
-              <img
-                src={product.imageUrl}
-                alt={product.name}
-                className="w-full h-full object-cover"
-              />
-            </div>
-          )}
-
+        {/* Cột trái (Desktop): Ảnh lớn & Thông tin tổng quan */}
+        <div className="w-full sm:w-[320px] bg-[#FBF9F5] p-5 sm:p-6 flex flex-col justify-between shrink-0 border-b sm:border-b-0 sm:border-r border-[#EDE7DF]">
           <div>
-            <p className="text-sm text-stone-600">
-              {product.description || 'Hương vị thơm ngon, chế biến từ nguyên liệu tươi mới.'}
-            </p>
-            <p className="text-lg font-bold text-[#8A502F] mt-1">
-              {product.basePrice.toLocaleString('vi-VN')} đ
+            <div className="relative w-full h-44 sm:h-56 rounded-2xl overflow-hidden bg-white shadow-sm mb-4">
+              {resolvedImageUrl && !imgError ? (
+                <img
+                  src={resolvedImageUrl}
+                  alt={product.name}
+                  className="w-full h-full object-cover"
+                  onError={() => setImgError(true)}
+                />
+              ) : (
+                <DrinkGraphicFallback name={product.name} />
+              )}
+              <span className="absolute top-2.5 left-2.5 bg-[#EDFAF2] text-[#147D56] text-xs px-2.5 py-0.5 rounded-full font-bold shadow-xs">
+                Còn hàng
+              </span>
+            </div>
+
+            <h3 className="font-bold text-stone-900 text-lg sm:text-xl leading-snug">
+              {product.name}
+            </h3>
+            <p className="text-xs sm:text-sm text-stone-500 mt-1 line-clamp-3">
+              {product.description || 'Hương thơm nguyên bản, vị béo ngọt thanh mát đặc trưng của BrewLite.'}
             </p>
           </div>
 
-          {/* Chọn Size */}
-          {product.sizes && product.sizes.length > 0 && (
-            <div>
-              <label className="text-xs font-semibold text-stone-700 uppercase tracking-wider block mb-2">
-                Chọn kích cỡ
-              </label>
-              <div className="grid grid-cols-3 gap-2">
-                {product.sizes.map((size) => {
-                  const isSelected = selectedSize?.sizeId === size.sizeId;
-                  return (
-                    <button
-                      key={size.sizeId}
-                      type="button"
-                      onClick={() => setSelectedSize(size)}
-                      className={`py-2 px-3 rounded-xl border text-xs font-medium text-center transition ${
-                        isSelected
-                          ? 'border-[#8A502F] bg-[#F5ECE5] text-[#8A502F] font-bold shadow-sm'
-                          : 'border-stone-200 text-stone-700 hover:border-stone-300'
-                      }`}
-                    >
-                      <div>{size.name}</div>
-                      <div className="text-[10px] text-stone-500">
-                        {size.priceAdjustment > 0
-                          ? `+${size.priceAdjustment.toLocaleString('vi-VN')}đ`
-                          : 'Tiêu chuẩn'}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Chọn Topping */}
-          {product.toppings && product.toppings.length > 0 && (
-            <div>
-              <label className="text-xs font-semibold text-stone-700 uppercase tracking-wider block mb-2">
-                Topping thêm
-              </label>
-              <div className="space-y-1.5">
-                {product.toppings.map((topping) => {
-                  const isSelected = selectedToppings.some(
-                    (t) => t.toppingId === topping.toppingId
-                  );
-                  return (
-                    <button
-                      key={topping.toppingId}
-                      type="button"
-                      onClick={() => toggleTopping(topping)}
-                      className={`w-full py-2 px-3 rounded-xl border text-xs flex justify-between items-center transition ${
-                        isSelected
-                          ? 'border-[#8A502F] bg-[#F5ECE5] text-[#8A502F] font-semibold'
-                          : 'border-stone-200 text-stone-700 hover:border-stone-300'
-                      }`}
-                    >
-                      <span>{topping.name}</span>
-                      <span>+{topping.price.toLocaleString('vi-VN')} đ</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Số lượng */}
-          <div className="flex items-center justify-between pt-2">
-            <span className="text-xs font-semibold text-stone-700 uppercase tracking-wider">
-              Số lượng
+          <div className="pt-3 border-t border-stone-200/60 mt-3 sm:mt-0">
+            <span className="text-xs text-stone-400 block font-medium">Giá tiêu chuẩn</span>
+            <span className="text-xl font-extrabold text-[#3D2615]">
+              {product.basePrice.toLocaleString('vi-VN')}đ
             </span>
-            <div className="flex items-center gap-3">
+          </div>
+        </div>
+
+        {/* Cột phải (Desktop): Form tùy biến cuộn */}
+        <div className="flex-1 flex flex-col overflow-hidden bg-white">
+          <div className="p-5 sm:p-6 overflow-y-auto space-y-5 flex-1">
+            
+            {/* 1. Chọn Size (Bắt buộc) */}
+            {product.sizes && product.sizes.length > 0 && (
+              <div>
+                <div className="flex items-center justify-between mb-2.5">
+                  <span className="text-xs font-bold text-[#3D2615] uppercase tracking-wide">
+                    Chọn kích cỡ
+                  </span>
+                  <span className="text-[11px] text-[#D97706] font-semibold">Bắt buộc • Chọn 1</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2.5">
+                  {product.sizes.map((size) => {
+                    const isSelected = selectedSize?.sizeId === size.sizeId;
+                    return (
+                      <button
+                        key={size.sizeId}
+                        type="button"
+                        onClick={() => setSelectedSize(size)}
+                        className={`py-2.5 px-3 rounded-xl border text-xs font-medium flex items-center justify-between transition ${
+                          isSelected
+                            ? 'border-[#3D2615] bg-[#3D2615] text-white shadow-xs'
+                            : 'border-stone-200 text-stone-700 hover:border-stone-400 bg-white'
+                        }`}
+                      >
+                        <span className="font-semibold">{size.name}</span>
+                        <span className={isSelected ? 'text-amber-100' : 'text-stone-500'}>
+                          {size.priceAdjustment > 0
+                            ? `+${size.priceAdjustment.toLocaleString('vi-VN')}đ`
+                            : '0đ'}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* 2. Chọn Mức Đường */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-bold text-[#3D2615] uppercase tracking-wide">
+                  Chọn mức đường
+                </span>
+                <span className="text-[11px] text-stone-400 font-medium">Chọn 1</span>
+              </div>
+              <div className="grid grid-cols-5 gap-1.5">
+                {SUGAR_OPTIONS.map((sugar) => {
+                  const isSelected = selectedSugar === sugar;
+                  return (
+                    <button
+                      key={sugar}
+                      type="button"
+                      onClick={() => setSelectedSugar(sugar)}
+                      className={`py-2 rounded-xl text-xs font-semibold transition text-center ${
+                        isSelected
+                          ? 'bg-[#3D2615] text-white shadow-xs'
+                          : 'bg-white border border-[#EDE7DF] text-stone-600 hover:bg-stone-50'
+                      }`}
+                    >
+                      {sugar}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 3. Chọn Mức Đá */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-bold text-[#3D2615] uppercase tracking-wide">
+                  Chọn mức đá
+                </span>
+                <span className="text-[11px] text-stone-400 font-medium">Chọn 1</span>
+              </div>
+              <div className="grid grid-cols-4 gap-1.5">
+                {ICE_OPTIONS.map((ice) => {
+                  const isSelected = selectedIce === ice;
+                  return (
+                    <button
+                      key={ice}
+                      type="button"
+                      onClick={() => setSelectedIce(ice)}
+                      className={`py-2 rounded-xl text-xs font-semibold transition text-center ${
+                        isSelected
+                          ? 'bg-[#3D2615] text-white shadow-xs'
+                          : 'bg-white border border-[#EDE7DF] text-stone-600 hover:bg-stone-50'
+                      }`}
+                    >
+                      {ice}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 4. Chọn Topping thêm */}
+            {product.toppings && product.toppings.length > 0 && (
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-bold text-[#3D2615] uppercase tracking-wide">
+                    Topping thêm
+                  </span>
+                  <span className="text-[11px] text-stone-400 font-medium">Tùy chọn</span>
+                </div>
+                <div className="space-y-2">
+                  {product.toppings.map((topping) => {
+                    const isSelected = selectedToppings.some(
+                      (t) => t.toppingId === topping.toppingId
+                    );
+                    return (
+                      <button
+                        key={topping.toppingId}
+                        type="button"
+                        onClick={() => toggleTopping(topping)}
+                        className={`w-full py-2.5 px-3 rounded-xl border text-xs flex items-center justify-between transition ${
+                          isSelected
+                            ? 'border-[#D97706] bg-[#FFF8ED] text-stone-900 font-medium'
+                            : 'border-stone-200 text-stone-700 hover:border-stone-300 bg-white'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <div
+                            className={`w-4 h-4 rounded flex items-center justify-center border transition ${
+                              isSelected
+                                ? 'bg-[#3D2615] border-[#3D2615] text-white'
+                                : 'border-stone-300 bg-white'
+                            }`}
+                          >
+                            {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                          </div>
+                          <span>{topping.name}</span>
+                        </div>
+                        <span className="font-semibold text-stone-800">
+                          +{topping.price.toLocaleString('vi-VN')}đ
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* 5. Ghi chú cho barista */}
+            <div>
+              <span className="text-xs font-bold text-[#3D2615] uppercase tracking-wide block mb-1.5">
+                Ghi chú cho Barista
+              </span>
+              <textarea
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                rows={2}
+                placeholder="Ghi chú thêm cho quán (ít ngọt, nhiều đá...)"
+                className="w-full text-xs p-3 rounded-xl border border-stone-200 focus:border-[#3D2615] focus:outline-none placeholder:text-stone-400 resize-none"
+              />
+            </div>
+          </div>
+
+          {/* Sticky Modal Bottom Actions */}
+          <div className="p-4 sm:p-5 border-t border-[#EDE7DF] bg-white flex items-center gap-3 shrink-0">
+            {/* Bộ tăng giảm số lượng */}
+            <div className="flex items-center justify-between bg-[#FBF9F5] border border-[#EDE7DF] rounded-xl px-2 py-1.5 w-28 shrink-0">
               <button
                 type="button"
                 onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                className="w-8 h-8 rounded-full border border-stone-200 flex items-center justify-center text-stone-600 hover:bg-stone-100 disabled:opacity-40"
+                className="w-7 h-7 rounded-lg flex items-center justify-center text-stone-600 hover:bg-stone-200 transition disabled:opacity-30"
                 disabled={quantity <= 1}
               >
                 <Minus className="w-4 h-4" />
               </button>
-              <span className="font-bold text-stone-900 text-sm w-4 text-center">
+              <span className="font-bold text-stone-900 text-sm">
                 {quantity}
               </span>
               <button
                 type="button"
                 onClick={() => setQuantity((q) => q + 1)}
-                className="w-8 h-8 rounded-full border border-stone-200 flex items-center justify-center text-stone-600 hover:bg-stone-100"
+                className="w-7 h-7 rounded-lg flex items-center justify-center text-stone-600 hover:bg-stone-200 transition"
               >
                 <Plus className="w-4 h-4" />
               </button>
             </div>
-          </div>
-        </div>
 
-        {/* Footer / Nút thêm vào giỏ */}
-        <div className="p-4 border-t border-stone-100 bg-stone-50/50">
-          <button
-            type="button"
-            onClick={handleAdd}
-            className="w-full py-3 bg-[#8A502F] hover:bg-[#733F22] text-white font-bold rounded-xl text-sm transition shadow-md flex items-center justify-between px-4"
-          >
-            <span>Thêm vào giỏ</span>
-            <span>{totalPrice.toLocaleString('vi-VN')} đ</span>
-          </button>
+            {/* Nút Thêm vào giỏ hàng */}
+            <button
+              type="button"
+              onClick={handleAdd}
+              className="flex-1 py-3 bg-[#D97706] hover:bg-[#C26804] text-white font-bold rounded-xl text-sm transition shadow-md flex items-center justify-center gap-2"
+            >
+              <span>Thêm vào giỏ hàng</span>
+              <span>•</span>
+              <span>{totalPrice.toLocaleString('vi-VN')}đ</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
