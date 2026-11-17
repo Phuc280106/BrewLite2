@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import * as bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
@@ -8,7 +9,13 @@ async function main() {
   // 0. Xóa dữ liệu cũ để tránh lỗi trùng lặp khi chạy lại seed
   await prisma.recipeItems.deleteMany();
   await prisma.cartItem.deleteMany();
+  await prisma.cart.deleteMany();
   await prisma.orderItem.deleteMany();
+  await prisma.payment.deleteMany();
+  await prisma.loyaltyTransaction.deleteMany();
+  await prisma.order.deleteMany();
+  await prisma.loyalty.deleteMany();
+  await prisma.user.deleteMany();
   await prisma.product.deleteMany();
   await prisma.category.deleteMany();
   await prisma.size.deleteMany();
@@ -165,7 +172,43 @@ async function main() {
     });
   }
 
-  console.log('Đã nạp thành công 5 danh mục, 2 kích cỡ chuẩn Figma, 3 topping và 10 món nước mẫu của Phước!');
+  // 5. Tạo tài khoản mẫu: Khách hàng (Customer) và Nhân viên pha chế (Barista)
+  const defaultPassword = '123456';
+  const saltRounds = 10;
+  const passwordHash = await bcrypt.hash(defaultPassword, saltRounds);
+
+  // 5.1 Khách hàng mẫu (Customer) - Có sẵn giỏ hàng và 50 điểm tích lũy
+  const customer = await prisma.user.create({
+    data: {
+      name: 'Nguyễn Văn Khách',
+      email: 'customer@gmail.com',
+      passwordHash,
+      role: 'CUSTOMER',
+      cart: {
+        create: {},
+      },
+      loyalty: {
+        create: {
+          points: 50,
+        },
+      },
+    },
+  });
+
+  // 5.2 Nhân viên pha chế mẫu (Barista)
+  const barista = await prisma.user.create({
+    data: {
+      name: 'Trần Barista',
+      email: 'barista@gmail.com',
+      passwordHash,
+      role: 'BARISTA',
+    },
+  });
+
+  console.log('Đã nạp thành công:');
+  console.log('- 5 danh mục, 2 kích cỡ, 3 topping và 10 món nước mẫu');
+  console.log(`- Tài khoản Khách hàng: ${customer.email} (Mật khẩu: ${defaultPassword}, Role: ${customer.role})`);
+  console.log(`- Tài khoản Barista:    ${barista.email} (Mật khẩu: ${defaultPassword}, Role: ${barista.role})`);
 }
 
 main()

@@ -34,22 +34,18 @@ interface AuthFormProps {
   className?: string;
 }
 
-const VALID_TLDS = new Set([
-  'com', 'vn', 'net', 'org', 'edu', 'gov', 'io', 'co', 'ai', 'app', 'dev', 'me', 'info', 'biz', 'xyz', 'tech', 'online', 'store'
-]);
-
 interface EmailValidationResult {
   isValid: boolean;
   errorMessage: string | null;
 }
 
-function validateEmail(emailInput: string, currentMode: AuthMode): EmailValidationResult {
+function validateEmail(emailInput: string): EmailValidationResult {
   const trimmed = emailInput.trim().toLowerCase();
   if (!trimmed) {
     return { isValid: false, errorMessage: null };
   }
 
-  // 1. Kiểm tra thiếu tên tài khoản trước @ (Ví dụ: @brewlite.vn)
+  // 1. Kiểm tra thiếu tên tài khoản trước @
   if (trimmed.startsWith('@')) {
     return { isValid: false, errorMessage: 'Vui lòng nhập tên tài khoản trước ký tự @' };
   }
@@ -64,40 +60,23 @@ function validateEmail(emailInput: string, currentMode: AuthMode): EmailValidati
     return { isValid: false, errorMessage: 'Vui lòng nhập tên tài khoản trước ký tự @' };
   }
 
-  if (!domainPart || !domainPart.includes('.')) {
-    return { isValid: false, errorMessage: 'Tên miền email phải có phần mở rộng (Ví dụ: .com, .vn)' };
+  // 2. Bắt lỗi sai chính tả các đuôi phổ biến (như gmail.comm, gmail.con)
+  if (domainPart === 'gmail.comm' || domainPart === 'gmail.con' || domainPart === 'gmail.co' || domainPart.endsWith('.comm')) {
+    return { isValid: false, errorMessage: 'Đuôi email không hợp lệ. Vui lòng nhập đúng @gmail.com' };
   }
 
-  // 2. Bắt lỗi sai chính tả phổ biến (Typo detection: .comm, .con)
-  if (domainPart === 'gmail.comm' || domainPart === 'gmail.con' || domainPart === 'gmail.co') {
-    return { isValid: false, errorMessage: 'Đuôi email không hợp lệ. Có phải bạn muốn nhập @gmail.com?' };
-  }
-  if (domainPart.endsWith('.comm') || domainPart.endsWith('.con')) {
-    return { isValid: false, errorMessage: 'Đuôi tên miền không tồn tại. Có phải bạn muốn nhập .com?' };
-  }
-
-  // 3. Tên miền nội bộ brewlite.vn (Chỉ cho phép nhân viên đăng nhập, không cho khách hàng đăng ký mới)
-  if (currentMode === 'signup' && domainPart === 'brewlite.vn') {
+  // 3. Yêu cầu DUY NHẤT định dạng @gmail.com (loại bỏ brewlite.vn và tất cả domain khác)
+  if (domainPart !== 'gmail.com') {
     return {
       isValid: false,
-      errorMessage: 'Tên miền @brewlite.vn chỉ dành cho nhân viên nội bộ BrewLite. Vui lòng sử dụng email cá nhân (ví dụ: Gmail, Outlook).',
+      errorMessage: 'Hệ thống chỉ chấp nhận email có đuôi @gmail.com (Ví dụ: tenban@gmail.com)',
     };
   }
 
-  // 4. Kiểm tra danh sách TLD hợp lệ thực tế
-  const domainSegments = domainPart.split('.');
-  const tld = domainSegments[domainSegments.length - 1];
-  if (!VALID_TLDS.has(tld)) {
-    return {
-      isValid: false,
-      errorMessage: `Phần mở rộng tên miền ".${tld}" không hợp lệ hoặc chưa được hỗ trợ.`,
-    };
-  }
-
-  // 5. Cú pháp RFC 5322 tổng quát
-  const EMAIL_SYNTAX_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-  if (!EMAIL_SYNTAX_REGEX.test(trimmed)) {
-    return { isValid: false, errorMessage: 'Định dạng email không hợp lệ (Ví dụ: tenban@gmail.com).' };
+  // 4. Kiểm tra cú pháp Gmail hợp lệ
+  const GMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@gmail\.com$/;
+  if (!GMAIL_REGEX.test(trimmed)) {
+    return { isValid: false, errorMessage: 'Tên tài khoản Gmail không hợp lệ (Ví dụ: tenban@gmail.com).' };
   }
 
   return { isValid: true, errorMessage: null };
@@ -120,7 +99,7 @@ export function AuthForm({ initialMode = 'signin', onSuccess, className = '' }: 
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [submittedEmail, setSubmittedEmail] = useState('');
 
-  const emailValidation = validateEmail(email, mode);
+  const emailValidation = validateEmail(email);
   const isEmailValid = emailValidation.isValid;
   const emailError = emailValidation.errorMessage;
   const isPasswordMatch = mode === 'signup' ? password.length > 0 && password === confirmPassword : true;
@@ -308,7 +287,7 @@ export function AuthForm({ initialMode = 'signin', onSuccess, className = '' }: 
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="tenban@email.com"
+                placeholder="tenban@gmail.com"
                 className={`w-full pl-10 pr-10 py-3 bg-[#FCFBF9] border rounded-xl text-sm transition outline-none text-[#1F1612] ${
                   email.trim().length > 0 && !isEmailValid
                     ? 'border-rose-400 focus:border-rose-500 focus:ring-2 focus:ring-rose-200'
@@ -522,7 +501,7 @@ export function AuthForm({ initialMode = 'signin', onSuccess, className = '' }: 
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="tenban@email.com"
+                  placeholder="tenban@gmail.com"
                   className={`w-full pl-10 pr-10 py-3 bg-[#FCFBF9] border rounded-xl text-sm transition outline-none text-[#1F1612] ${
                     email.trim().length > 0 && !isEmailValid
                       ? 'border-rose-400 focus:border-rose-500 focus:ring-2 focus:ring-rose-200'
