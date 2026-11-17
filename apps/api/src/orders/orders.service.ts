@@ -3,6 +3,7 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import {
   LoyaltyTransactionType,
@@ -35,9 +36,13 @@ export class OrdersService {
    * Tạo đơn hàng mới trong Database Transaction và khóa dòng tồn kho (SELECT FOR UPDATE)
    * để chống bán âm kho khi nhiều khách hàng đặt hàng đồng thời.
    */
-  async createOrder(authUserId: string | undefined, dto: CreateOrderDto) {
+  async createOrder(authUserId: string, dto: CreateOrderDto) {
+    if (!authUserId) {
+      throw new UnauthorizedException('Vui lòng đăng nhập để đặt đơn hàng');
+    }
+
     return this.prisma.$transaction(async (tx) => {
-      const userId = await this.resolveUserId(tx, authUserId ?? dto.userId);
+      const userId = await this.resolveUserId(tx, authUserId);
 
       const { lines, subtotal, requiredByIngredient } =
         await this.buildValidatedOrderLines(tx, dto.items);
@@ -136,29 +141,16 @@ export class OrdersService {
 
   private async resolveUserId(
     tx: Prisma.TransactionClient,
-    requestedUserId?: string,
+    userId: string,
   ): Promise<string> {
-    if (requestedUserId) {
-      const user = await tx.user.findUnique({
-        where: { userId: requestedUserId },
-        select: { userId: true },
-      });
-      if (!user) {
-        throw new NotFoundException(`Không tìm thấy người dùng: ${requestedUserId}`);
-      }
-      return user.userId;
-    }
-
-    const demoUser = await tx.user.findUnique({
-      where: { email: 'demo@brewlite.vn' },
+    const user = await tx.user.findUnique({
+      where: { userId },
       select: { userId: true },
     });
-    if (!demoUser) {
-      throw new NotFoundException(
-        'Chưa có người dùng mẫu (demo@brewlite.vn). Vui lòng chạy npm run seed trước.',
-      );
+    if (!user) {
+      throw new UnauthorizedException('Tài khoản không tồn tại hoặc không hợp lệ');
     }
-    return demoUser.userId;
+    return user.userId;
   }
 
   private async buildValidatedOrderLines(
