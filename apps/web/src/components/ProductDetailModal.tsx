@@ -1,13 +1,19 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Product, Size, Topping } from '@/types';
+import { AddToCartInput } from '@/types/cart';
+import { calculateItemUnitPrice, formatVND, toNumeric } from '@/lib/cartPricing';
 import { X, Plus, Minus, Check } from 'lucide-react';
 import { DEFAULT_PRODUCT_IMAGES, DrinkGraphicFallback } from './ProductCard';
 
 interface ProductDetailModalProps {
   product: Product;
   onClose: () => void;
-  onAddToCart?: () => void;
+  onAddToCart?: (item: AddToCartInput) => void;
 }
+
+const RAW_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+const CLEAN_URL = RAW_URL.replace(/\/+$/, '');
+const API_BASE = CLEAN_URL.endsWith('/api/v1') ? CLEAN_URL : `${CLEAN_URL}/api/v1`;
 
 const SUGAR_OPTIONS = ['0%', '30%', '50%', '70%', '100%'];
 const ICE_OPTIONS = ['Nóng', 'Không đá', '50% đá', '100% đá'];
@@ -17,6 +23,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   onClose,
   onAddToCart,
 }) => {
+  const [detailProduct, setDetailProduct] = useState<Product>(product);
   const [selectedSize, setSelectedSize] = useState<Size | undefined>(
     product.sizes?.[0]
   );
@@ -27,6 +34,33 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const [quantity, setQuantity] = useState<number>(1);
   const [imgError, setImgError] = useState(false);
 
+  // Nạp chi tiết size và topping đầy đủ từ API nếu danh sách menu chưa đính kèm
+  useEffect(() => {
+    setDetailProduct(product);
+    setSelectedSize(product.sizes?.[0]);
+    setSelectedToppings([]);
+
+    if (product.sizes && product.sizes.length > 0 && product.toppings) {
+      return;
+    }
+
+    let cancelled = false;
+    fetch(`${API_BASE}/products/${product.productId}`, { cache: 'no-store' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: Product | null) => {
+        if (cancelled || !data) return;
+        setDetailProduct(data);
+        setSelectedSize((prev) => prev ?? data.sizes?.[0]);
+      })
+      .catch(() => {
+        // Giữ dữ liệu hiện tại nếu backend không khả dụng
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [product]);
+
   const toggleTopping = (topping: Topping) => {
     setSelectedToppings((prev) =>
       prev.some((t) => t.toppingId === topping.toppingId)
@@ -35,24 +69,38 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     );
   };
 
-  const totalPrice =
-    (product.basePrice +
-      (selectedSize?.priceAdjustment || 0) +
-      selectedToppings.reduce((sum, t) => sum + t.price, 0)) *
-    quantity;
+  const unitPrice = calculateItemUnitPrice(
+    detailProduct.basePrice,
+    selectedSize?.priceAdjustment ?? 0,
+    selectedToppings,
+  );
+  const totalPrice = unitPrice * quantity;
 
   const handleAdd = () => {
     if (onAddToCart) {
-      onAddToCart();
+      onAddToCart({
+        product: detailProduct,
+        size: selectedSize,
+        sugar: selectedSugar,
+        ice: selectedIce,
+        toppings: selectedToppings,
+        note,
+        quantity,
+      });
     }
     onClose();
   };
 
-  const resolvedImageUrl = product.imageUrl || DEFAULT_PRODUCT_IMAGES[product.name] || null;
+  const resolvedImageUrl =
+    detailProduct.imageUrl || DEFAULT_PRODUCT_IMAGES[detailProduct.name] || null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-[rgba(31,20,13,0.45)] backdrop-blur-sm p-0 sm:p-4 animate-fadeIn">
-      <div className="bg-white w-full max-w-md sm:max-w-3xl rounded-t-3xl sm:rounded-3xl max-h-[92vh] sm:max-h-[85vh] flex flex-col sm:flex-row overflow-hidden shadow-2xl relative border border-stone-100">
+      <div
+        role="dialog"
+        aria-modal="true"
+        className="bg-white w-full max-w-md sm:max-w-3xl rounded-t-3xl sm:rounded-3xl max-h-[92vh] sm:max-h-[85vh] flex flex-col sm:flex-row overflow-hidden shadow-2xl relative border border-stone-100"
+      >
         
         {/* Nút đóng modal góc trên */}
         <button
@@ -83,17 +131,17 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             </div>
 
             <h3 className="font-bold text-stone-900 text-lg sm:text-xl leading-snug">
-              {product.name}
+              {detailProduct.name}
             </h3>
             <p className="text-xs sm:text-sm text-stone-500 mt-1 line-clamp-3">
-              {product.description || 'Hương thơm nguyên bản, vị béo ngọt thanh mát đặc trưng của BrewLite.'}
+              {detailProduct.description || 'Hương thơm nguyên bản, vị béo ngọt thanh mát đặc trưng của BrewLite.'}
             </p>
           </div>
 
           <div className="pt-3 border-t border-stone-200/60 mt-3 sm:mt-0">
             <span className="text-xs text-stone-400 block font-medium">Giá tiêu chuẩn</span>
             <span className="text-xl font-extrabold text-[#3D2615]">
-              {product.basePrice.toLocaleString('vi-VN')}đ
+              {formatVND(toNumeric(detailProduct.basePrice))}
             </span>
           </div>
         </div>
@@ -103,7 +151,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
           <div className="p-5 sm:p-6 overflow-y-auto space-y-5 flex-1">
             
             {/* 1. Chọn Size (Bắt buộc) */}
-            {product.sizes && product.sizes.length > 0 && (
+            {detailProduct.sizes && detailProduct.sizes.length > 0 && (
               <div>
                 <div className="flex items-center justify-between mb-2.5">
                   <span className="text-xs font-bold text-[#3D2615] uppercase tracking-wide">
@@ -112,8 +160,9 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   <span className="text-[11px] text-[#D97706] font-semibold">Bắt buộc • Chọn 1</span>
                 </div>
                 <div className="grid grid-cols-2 gap-2.5">
-                  {product.sizes.map((size) => {
+                  {detailProduct.sizes.map((size) => {
                     const isSelected = selectedSize?.sizeId === size.sizeId;
+                    const sizeAdj = toNumeric(size.priceAdjustment);
                     return (
                       <button
                         key={size.sizeId}
@@ -127,8 +176,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                       >
                         <span className="font-semibold">{size.name}</span>
                         <span className={isSelected ? 'text-amber-100' : 'text-stone-500'}>
-                          {size.priceAdjustment > 0
-                            ? `+${size.priceAdjustment.toLocaleString('vi-VN')}đ`
+                          {sizeAdj > 0
+                            ? `+${formatVND(sizeAdj)}`
                             : '0đ'}
                         </span>
                       </button>
@@ -197,7 +246,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             </div>
 
             {/* 4. Chọn Topping thêm */}
-            {product.toppings && product.toppings.length > 0 && (
+            {detailProduct.toppings && detailProduct.toppings.length > 0 && (
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs font-bold text-[#3D2615] uppercase tracking-wide">
@@ -206,7 +255,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   <span className="text-[11px] text-stone-400 font-medium">Tùy chọn</span>
                 </div>
                 <div className="space-y-2">
-                  {product.toppings.map((topping) => {
+                  {detailProduct.toppings.map((topping) => {
                     const isSelected = selectedToppings.some(
                       (t) => t.toppingId === topping.toppingId
                     );
@@ -234,7 +283,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                           <span>{topping.name}</span>
                         </div>
                         <span className="font-semibold text-stone-800">
-                          +{topping.price.toLocaleString('vi-VN')}đ
+                          +{formatVND(toNumeric(topping.price))}
                         </span>
                       </button>
                     );
@@ -290,7 +339,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             >
               <span>Thêm vào giỏ hàng</span>
               <span>•</span>
-              <span>{totalPrice.toLocaleString('vi-VN')}đ</span>
+              <span>{formatVND(totalPrice)}</span>
             </button>
           </div>
         </div>

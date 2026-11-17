@@ -10,8 +10,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Category, Product } from '@/types';
+import { AddToCartInput } from '@/types/cart';
 import { AuthUser } from '@/types/auth';
 import { logout, onAuthStateChange } from '@/lib/auth';
+import { useCartStore } from '@/store/useCartStore';
+import { formatVND } from '@/lib/cartPricing';
 import { SearchBar } from '@/components/SearchBar';
 import { CategoryFilter } from '@/components/CategoryFilter';
 import { ProductCard } from '@/components/ProductCard';
@@ -168,7 +171,15 @@ export default function MenuPage() {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [cartCount, setCartCount] = useState<number>(0);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const cartItems = useCartStore((state) => state.items);
+  const addCartItem = useCartStore((state) => state.addItem);
+  const hasCartHydrated = useCartStore((state) => state.hasHydrated);
+
+  const cartCount = hasCartHydrated
+    ? cartItems.reduce((sum, item) => sum + item.quantity, 0)
+    : 0;
 
   useEffect(() => {
     const unsub = onAuthStateChange((user) => {
@@ -227,13 +238,20 @@ export default function MenuPage() {
     return () => clearTimeout(timer);
   }, [loadData]);
 
+  useEffect(() => {
+    if (!toastMessage) return;
+    const timer = setTimeout(() => setToastMessage(null), 3500);
+    return () => clearTimeout(timer);
+  }, [toastMessage]);
+
   const handleResetFilters = () => {
     setSelectedCategoryId(null);
     setSearchKeyword('');
   };
 
-  const handleAddToCart = () => {
-    setCartCount((prev) => prev + 1);
+  const handleAddToCart = (payload: AddToCartInput) => {
+    const added = addCartItem(payload);
+    setToastMessage(`Đã thêm ${payload.quantity}x ${added.productName} (${formatVND(added.unitPrice * payload.quantity)}) vào giỏ hàng`);
   };
 
   return (
@@ -362,13 +380,18 @@ export default function MenuPage() {
 
             {/* Icon Giỏ hàng góc phải */}
             <button
-              className="relative p-2 rounded-full text-stone-800 hover:text-stone-900 hover:bg-stone-100 transition flex items-center justify-center"
-              onClick={() => {/* TODO: Giỏ hàng */}}
+              className="relative p-2.5 min-w-[44px] min-h-[44px] rounded-full text-stone-800 hover:text-stone-900 hover:bg-stone-100 transition flex items-center justify-center cursor-pointer"
+              onClick={() => router.push('/cart')}
               title="Giỏ hàng"
+              aria-label="Mở giỏ hàng"
+              data-testid="header-cart-button"
             >
               <ShoppingCart className="w-5 h-5 text-[#3D2615]" />
               {cartCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 bg-[#D97706] text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center shadow-xs">
+                <span
+                  data-testid="header-cart-badge"
+                  className="absolute top-0.5 right-0.5 bg-[#D97706] text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center shadow-xs"
+                >
                   {cartCount}
                 </span>
               )}
@@ -499,6 +522,23 @@ export default function MenuPage() {
           </button>
         </div>
       </nav>
+
+      {/* Toast thông báo thêm món vào giỏ hàng thành công */}
+      {toastMessage && (
+        <div
+          role="status"
+          className="fixed bottom-20 left-4 right-4 sm:left-auto sm:right-6 sm:max-w-md z-50 bg-[#3D2615] text-white px-4 py-3 rounded-2xl shadow-xl border border-amber-900/30 flex items-center justify-between gap-3 animate-fadeIn"
+        >
+          <span className="text-xs sm:text-sm font-medium leading-snug">{toastMessage}</span>
+          <button
+            type="button"
+            onClick={() => router.push('/cart')}
+            className="shrink-0 bg-[#D97706] hover:bg-[#C26804] text-white text-xs font-bold px-3 py-1.5 rounded-xl transition cursor-pointer"
+          >
+            Xem giỏ hàng
+          </button>
+        </div>
+      )}
 
       {/* 5. Modal Chi tiết món & Tùy biến overlay (Màn hình 2 chuẩn Desktop Dialog) */}
       {selectedProduct && (
