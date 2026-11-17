@@ -8,7 +8,10 @@
 // ============================================================
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { Category, Product } from '@/types';
+import { AuthUser } from '@/types/auth';
+import { logout, onAuthStateChange } from '@/lib/auth';
 import { SearchBar } from '@/components/SearchBar';
 import { CategoryFilter } from '@/components/CategoryFilter';
 import { ProductCard } from '@/components/ProductCard';
@@ -22,6 +25,7 @@ import {
   Gift,
   User,
   ShoppingCart,
+  LogOut,
 } from 'lucide-react';
 
 const FALLBACK_CATEGORIES: Category[] = [
@@ -152,6 +156,10 @@ const FALLBACK_PRODUCTS: Product[] = [
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
 
 export default function MenuPage() {
+  const router = useRouter();
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState<boolean>(false);
+
   const [categories, setCategories] = useState<Category[]>(FALLBACK_CATEGORIES);
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
@@ -161,6 +169,13 @@ export default function MenuPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [cartCount, setCartCount] = useState<number>(0);
+
+  useEffect(() => {
+    const unsub = onAuthStateChange((user) => {
+      setCurrentUser(user);
+    });
+    return () => unsub();
+  }, []);
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
@@ -255,19 +270,95 @@ export default function MenuPage() {
 
           {/* Tích điểm, User và Giỏ hàng ở góc phải */}
           <div className="flex items-center gap-3 shrink-0">
-            {/* Badge Tích điểm: 120 pts */}
+            {/* Badge Tích điểm */}
             <div className="bg-[#EEF7F2] text-[#2D7A4D] font-bold text-xs sm:text-sm px-3.5 py-1.5 rounded-full flex items-center gap-1.5 border border-[#D5EFE0] shadow-xs">
               <Coins className="w-4 h-4 text-[#2D7A4D]" />
-              <span>120 pts</span>
+              <span>{currentUser?.points != null ? `${currentUser.points} pts` : '120 pts'}</span>
             </div>
 
             {/* Icon User trên desktop */}
-            <button
-              className="hidden sm:flex w-9 h-9 rounded-full border border-stone-200 items-center justify-center text-stone-600 hover:bg-stone-100 transition"
-              title="Tài khoản"
-            >
-              <User className="w-4 h-4" />
-            </button>
+            <div className="relative hidden sm:block">
+              <button
+                onClick={() => {
+                  if (!currentUser) {
+                    router.push('/auth');
+                  } else {
+                    setIsUserMenuOpen((prev) => !prev);
+                  }
+                }}
+                className={`w-9 h-9 rounded-full border flex items-center justify-center transition font-semibold text-xs cursor-pointer ${
+                  currentUser
+                    ? 'bg-[#2B1810] text-white border-[#2B1810] shadow-sm hover:bg-[#1E100A]'
+                    : 'border-stone-200 text-stone-600 hover:bg-stone-100'
+                }`}
+                title={currentUser ? currentUser.name : 'Tài khoản'}
+              >
+                {currentUser ? (
+                  <span>
+                    {currentUser.name
+                      .split(' ')
+                      .map((n) => n[0])
+                      .slice(-2)
+                      .join('')
+                      .toUpperCase()}
+                  </span>
+                ) : (
+                  <User className="w-4 h-4" />
+                )}
+              </button>
+
+              {/* User Dropdown / Popup */}
+              {currentUser && isUserMenuOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setIsUserMenuOpen(false)}
+                  />
+                  <div className="absolute right-0 mt-2 w-64 bg-white rounded-2xl shadow-xl border border-[#E5E0D8] p-4 z-50 animate-fadeIn">
+                    <div className="flex items-center gap-3 pb-3 border-b border-stone-100">
+                      <div className="w-10 h-10 rounded-full bg-[#2B1810] text-white flex items-center justify-center font-bold text-sm shrink-0">
+                        {currentUser.name
+                          .split(' ')
+                          .map((n) => n[0])
+                          .slice(-2)
+                          .join('')
+                          .toUpperCase()}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-bold text-[#1F1612] truncate">{currentUser.name}</p>
+                        <p className="text-xs text-stone-500 truncate">{currentUser.email}</p>
+                        <div className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#F5ECE5] text-[#C8682E]">
+                          <span>{currentUser.role === 'BARISTA' ? 'Pha chế / Thu ngân' : 'Thành viên BrewLite'}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Điểm tích lũy */}
+                    <div className="py-2.5 flex items-center justify-between text-xs text-stone-600">
+                      <span className="flex items-center gap-1.5 font-medium">
+                        <Coins className="w-3.5 h-3.5 text-[#2D7A4D]" />
+                        Điểm BrewLite
+                      </span>
+                      <span className="font-bold text-[#2D7A4D]">{currentUser.points ?? 120} pts</span>
+                    </div>
+
+                    {/* Nút Đăng xuất */}
+                    <div className="pt-2 border-t border-stone-100">
+                      <button
+                        onClick={() => {
+                          logout();
+                          setIsUserMenuOpen(false);
+                        }}
+                        className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-stone-100 hover:bg-rose-50 text-stone-700 hover:text-rose-700 text-xs font-semibold transition cursor-pointer"
+                      >
+                        <LogOut className="w-3.5 h-3.5" />
+                        <span>Đăng xuất</span>
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
 
             {/* Icon Giỏ hàng góc phải */}
             <button
@@ -393,9 +484,18 @@ export default function MenuPage() {
           </button>
 
           {/* Nút Tài khoản */}
-          <button className="flex flex-col sm:flex-row items-center gap-1 text-stone-500 hover:text-[#3D2615] transition px-3 py-1.5 rounded-full text-xs sm:text-sm font-medium">
+          <button
+            onClick={() => {
+              if (!currentUser) {
+                router.push('/auth');
+              } else {
+                setIsUserMenuOpen((prev) => !prev);
+              }
+            }}
+            className="flex flex-col sm:flex-row items-center gap-1 text-stone-500 hover:text-[#3D2615] transition px-3 py-1.5 rounded-full text-xs sm:text-sm font-medium cursor-pointer"
+          >
             <User className="w-4 h-4" />
-            <span>Tài khoản</span>
+            <span>{currentUser ? currentUser.name.split(' ').slice(-1)[0] : 'Tài khoản'}</span>
           </button>
         </div>
       </nav>
