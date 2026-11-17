@@ -19,12 +19,12 @@ export const DEMO_ACCOUNTS = {
   customer: {
     label: 'Khách hàng demo',
     roleLabel: 'Khách hàng',
-    email: 'customer@brewlite.vn',
+    email: 'customer@gmail.com',
     password: '123456',
     user: {
       userId: 'demo-customer-001',
       name: 'Nguyễn Văn An',
-      email: 'customer@brewlite.vn',
+      email: 'customer@gmail.com',
       role: 'CUSTOMER',
       points: 120,
     } as AuthUser,
@@ -32,12 +32,12 @@ export const DEMO_ACCOUNTS = {
   barista: {
     label: 'Thu ngân / Pha chế demo',
     roleLabel: 'Pha chế',
-    email: 'barista@brewlite.vn',
+    email: 'barista@gmail.com',
     password: '123456',
     user: {
       userId: 'demo-barista-002',
       name: 'Trần Thị Mai',
-      email: 'barista@brewlite.vn',
+      email: 'barista@gmail.com',
       role: 'BARISTA',
       points: 350,
     } as AuthUser,

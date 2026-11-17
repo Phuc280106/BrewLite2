@@ -3,8 +3,8 @@ import { IsEmail, IsNotEmpty, IsString, MinLength } from 'class-validator';
 
 export class LoginDto {
   @ApiProperty({
-    example: 'customer@brewlite.vn',
-    description: 'Địa chỉ email đã đăng ký',
+    example: 'customer@gmail.com',
+    description: 'Địa chỉ email Gmail đã đăng ký (@gmail.com)',
   })
   @IsEmail({}, { message: 'Email không đúng định dạng' })
   @IsNotEmpty({ message: 'Email không được để trống' })

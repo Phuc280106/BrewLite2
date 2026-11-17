@@ -23,15 +23,10 @@ export class AuthService {
   async register(dto: RegisterDto) {
     const emailClean = dto.email.trim().toLowerCase();
 
-    // Chặn đăng ký khách hàng bằng email nội bộ của quán hoặc đuôi sai chính tả
-    if (emailClean.endsWith('@brewlite.vn')) {
+    // Hệ thống chỉ chấp nhận duy nhất định dạng @gmail.com
+    if (!emailClean.endsWith('@gmail.com') || emailClean.length <= 10) {
       throw new BadRequestException(
-        'Tên miền @brewlite.vn dành riêng cho nhân viên nội bộ BrewLite. Vui lòng sử dụng email cá nhân.',
-      );
-    }
-    if (emailClean.endsWith('.comm') || emailClean.endsWith('gmail.con')) {
-      throw new BadRequestException(
-        'Đuôi email không hợp lệ. Vui lòng kiểm tra lại tên miền email (Ví dụ: tenban@gmail.com).',
+        'Hệ thống chỉ chấp nhận địa chỉ email có đuôi @gmail.com (Ví dụ: tenban@gmail.com).',
       );
     }
 

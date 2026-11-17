@@ -1,4 +1,4 @@
-import { ConflictException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, UnauthorizedException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
@@ -50,7 +50,7 @@ describe('AuthService', () => {
   describe('register', () => {
     const registerDto = {
       name: 'Nguyen Van A',
-      email: 'nguyenvana@example.com',
+      email: 'nguyenvana@gmail.com',
       password: 'password123',
     };
 
@@ -103,18 +103,33 @@ describe('AuthService', () => {
       );
       expect(mockPrisma.user.create).not.toHaveBeenCalled();
     });
+
+    it('should throw BadRequestException if email does not end with @gmail.com', async () => {
+      const invalidEmailDto = {
+        name: 'Nguyen Van A',
+        email: 'invalid@brewlite.vn',
+        password: 'password123',
+      };
+
+      await expect(service.register(invalidEmailDto)).rejects.toThrow(
+        new BadRequestException(
+          'Hệ thống chỉ chấp nhận địa chỉ email có đuôi @gmail.com (Ví dụ: tenban@gmail.com).',
+        ),
+      );
+      expect(mockPrisma.user.create).not.toHaveBeenCalled();
+    });
   });
 
   describe('login', () => {
     const loginDto = {
-      email: 'nguyenvana@example.com',
+      email: 'nguyenvana@gmail.com',
       password: 'password123',
     };
 
     const mockDbUser = {
       userId: 'uuid-user-1',
       name: 'Nguyen Van A',
-      email: 'nguyenvana@example.com',
+      email: 'nguyenvana@gmail.com',
       passwordHash: '$2a$10$abcdefghijklmnopqrstuvwxyz1234567890',
       role: 'CUSTOMER',
     };
@@ -186,7 +201,7 @@ describe('AuthService', () => {
     const mockUser = {
       userId: 'uuid-user-1',
       name: 'Nguyen Van A',
-      email: 'nguyenvana@example.com',
+      email: 'nguyenvana@gmail.com',
       role: 'CUSTOMER',
     };
 

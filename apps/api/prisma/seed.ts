@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import * as bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
@@ -175,7 +176,8 @@ async function main() {
     createdProducts.set(product.name, product.productId);
   }
 
-  // 5. Tạo User mẫu kèm ví điểm Loyalty (120 điểm)
+  // 5. Tạo tài khoản mẫu: Demo, Khách hàng (Customer) và Nhân viên pha chế (Barista)
+  // 5.1 User mẫu Demo kèm ví điểm Loyalty (120 điểm)
   const demoUser = await prisma.user.create({
     data: {
       name: 'Khách hàng Demo',
@@ -187,6 +189,39 @@ async function main() {
           points: 120,
         },
       },
+    },
+  });
+
+  // 5.2 Khách hàng mẫu (Customer) và Nhân viên pha chế (Barista) có mã hóa mật khẩu bcrypt
+  const defaultPassword = '123456';
+  const saltRounds = 10;
+  const passwordHash = await bcrypt.hash(defaultPassword, saltRounds);
+
+  // Khách hàng mẫu (Customer) - Có sẵn giỏ hàng và 50 điểm tích lũy
+  const customer = await prisma.user.create({
+    data: {
+      name: 'Nguyễn Văn Khách',
+      email: 'customer@gmail.com',
+      passwordHash,
+      role: 'CUSTOMER',
+      cart: {
+        create: {},
+      },
+      loyalty: {
+        create: {
+          points: 50,
+        },
+      },
+    },
+  });
+
+  // Nhân viên pha chế mẫu (Barista)
+  const barista = await prisma.user.create({
+    data: {
+      name: 'Trần Barista',
+      email: 'barista@gmail.com',
+      passwordHash,
+      role: 'BARISTA',
     },
   });
 
@@ -340,8 +375,11 @@ async function main() {
   await prisma.recipeItems.createMany({ data: recipeRows });
 
   console.log(
-    `Đã nạp xong: 5 danh mục, 2 size, 3 topping, 10 món nước, 9 nguyên liệu, ${recipeRows.length} công thức, 2 mã giảm giá và user ${demoUser.email}.`,
+    `Đã nạp xong: 5 danh mục, 2 size, 3 topping, 10 món nước, 9 nguyên liệu, ${recipeRows.length} công thức, 2 mã giảm giá.`,
   );
+  console.log(`- Tài khoản Demo:       ${demoUser.email} (Role: ${demoUser.role})`);
+  console.log(`- Tài khoản Khách hàng: ${customer.email} (Mật khẩu: ${defaultPassword}, Role: ${customer.role})`);
+  console.log(`- Tài khoản Barista:    ${barista.email} (Mật khẩu: ${defaultPassword}, Role: ${barista.role})`);
 }
 
 main()

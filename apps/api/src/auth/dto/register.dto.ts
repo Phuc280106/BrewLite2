@@ -12,8 +12,8 @@ export class RegisterDto {
   name: string;
 
   @ApiProperty({
-    example: 'test@brewlite.vn',
-    description: 'Địa chỉ email hợp lệ',
+    example: 'customer@gmail.com',
+    description: 'Địa chỉ email Gmail hợp lệ (bắt buộc đuôi @gmail.com)',
   })
   @IsEmail({}, { message: 'Email không đúng định dạng' })
   @IsNotEmpty({ message: 'Email không được để trống' })
