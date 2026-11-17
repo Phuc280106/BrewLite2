@@ -5,14 +5,22 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('Đang dọn dẹp và nạp lại dữ liệu mẫu cho Thực đơn BrewLite...');
 
-  // 0. Xóa dữ liệu cũ để tránh lỗi trùng lặp khi chạy lại seed
-  await prisma.recipeItems.deleteMany();
-  await prisma.cartItem.deleteMany();
+  // 0. Xóa dữ liệu cũ theo đúng thứ tự khóa ngoại để tránh lỗi khi chạy lại seed
+  await prisma.loyaltyTransaction.deleteMany();
+  await prisma.loyalty.deleteMany();
+  await prisma.payment.deleteMany();
   await prisma.orderItem.deleteMany();
+  await prisma.order.deleteMany();
+  await prisma.cartItem.deleteMany();
+  await prisma.cart.deleteMany();
+  await prisma.recipeItems.deleteMany();
   await prisma.product.deleteMany();
   await prisma.category.deleteMany();
   await prisma.size.deleteMany();
   await prisma.topping.deleteMany();
+  await prisma.promotion.deleteMany();
+  await prisma.ingredient.deleteMany();
+  await prisma.user.deleteMany();
 
   // 1. Tạo các Danh mục mẫu chuẩn theo thiết kế Figma
   const caPhePhin = await prisma.category.create({
@@ -143,8 +151,9 @@ async function main() {
     },
   ];
 
+  const createdProducts = new Map<string, string>();
   for (const item of sampleProducts) {
-    await prisma.product.create({
+    const product = await prisma.product.create({
       data: {
         name: item.name,
         description: item.desc,
@@ -163,9 +172,176 @@ async function main() {
         },
       },
     });
+    createdProducts.set(product.name, product.productId);
   }
 
-  console.log('Đã nạp thành công 5 danh mục, 2 kích cỡ chuẩn Figma, 3 topping và 10 món nước mẫu của Phước!');
+  // 5. Tạo User mẫu kèm ví điểm Loyalty (120 điểm)
+  const demoUser = await prisma.user.create({
+    data: {
+      name: 'Khách hàng Demo',
+      email: 'demo@brewlite.vn',
+      passwordHash: 'demo-placeholder-hash',
+      role: 'CUSTOMER',
+      loyalty: {
+        create: {
+          points: 120,
+        },
+      },
+    },
+  });
+
+  // 6. Tạo 2 mã khuyến mãi Promotion mẫu
+  await prisma.promotion.createMany({
+    data: [
+      {
+        promotionCode: 'BREWLITE10',
+        description: 'Giảm 10% cho đơn từ 50.000đ',
+        minimumOrderAmount: 50000,
+        discountAmount: 0,
+        discountPercentage: 10,
+      },
+      {
+        promotionCode: 'GIAM15K',
+        description: 'Giảm 15.000đ cho đơn từ 80.000đ',
+        minimumOrderAmount: 80000,
+        discountAmount: 15000,
+        discountPercentage: 0,
+      },
+    ],
+  });
+
+  // 7. Tạo kho Nguyên liệu (Ingredient)
+  const ingCoffee = await prisma.ingredient.create({
+    data: { name: 'Hạt cà phê Arabica', unit: 'g', stock: 1000 },
+  });
+  const ingMilk = await prisma.ingredient.create({
+    data: { name: 'Sữa tươi', unit: 'ml', stock: 5000 },
+  });
+  const ingOolong = await prisma.ingredient.create({
+    data: { name: 'Trà Oolong', unit: 'g', stock: 500 },
+  });
+  const ingBlackTea = await prisma.ingredient.create({
+    data: { name: 'Hồng trà', unit: 'g', stock: 500 },
+  });
+  const ingMatcha = await prisma.ingredient.create({
+    data: { name: 'Bột Matcha', unit: 'g', stock: 400 },
+  });
+  const ingPeach = await prisma.ingredient.create({
+    data: { name: 'Đào ngâm', unit: 'miếng', stock: 100 },
+  });
+  const ingChocolate = await prisma.ingredient.create({
+    data: { name: 'Bột Chocolate', unit: 'g', stock: 600 },
+  });
+  const ingOrange = await prisma.ingredient.create({
+    data: { name: 'Cam tươi', unit: 'quả', stock: 100 },
+  });
+  const ingBoba = await prisma.ingredient.create({
+    data: { name: 'Trân châu đen', unit: 'g', stock: 1000 },
+  });
+
+  // 8. Tạo Công thức (RecipeItems) cho 10 món × 2 size (M, L)
+  const recipeDefinitions: Array<{
+    productName: string;
+    ingredients: Array<{ ingredientId: string; mAmount: number; lAmount: number }>;
+  }> = [
+    {
+      productName: 'Trà Sữa Oolong Nướng',
+      ingredients: [
+        { ingredientId: ingOolong.ingredientId, mAmount: 15, lAmount: 22 },
+        { ingredientId: ingMilk.ingredientId, mAmount: 180, lAmount: 250 },
+      ],
+    },
+    {
+      productName: 'Cà Phê Muối Hoàng Gia',
+      ingredients: [
+        { ingredientId: ingCoffee.ingredientId, mAmount: 20, lAmount: 28 },
+        { ingredientId: ingMilk.ingredientId, mAmount: 120, lAmount: 170 },
+      ],
+    },
+    {
+      productName: 'Trà Đào Cam Sả Thượng Hạng',
+      ingredients: [
+        { ingredientId: ingBlackTea.ingredientId, mAmount: 12, lAmount: 18 },
+        { ingredientId: ingPeach.ingredientId, mAmount: 3, lAmount: 5 },
+        { ingredientId: ingOrange.ingredientId, mAmount: 1, lAmount: 2 },
+      ],
+    },
+    {
+      productName: 'Cà phê sữa đá',
+      ingredients: [
+        { ingredientId: ingCoffee.ingredientId, mAmount: 20, lAmount: 28 },
+        { ingredientId: ingMilk.ingredientId, mAmount: 80, lAmount: 120 },
+      ],
+    },
+    {
+      productName: 'Americano đá',
+      ingredients: [{ ingredientId: ingCoffee.ingredientId, mAmount: 18, lAmount: 26 }],
+    },
+    {
+      productName: 'Trà sữa trân châu',
+      ingredients: [
+        { ingredientId: ingBlackTea.ingredientId, mAmount: 15, lAmount: 22 },
+        { ingredientId: ingMilk.ingredientId, mAmount: 180, lAmount: 250 },
+        { ingredientId: ingBoba.ingredientId, mAmount: 40, lAmount: 60 },
+      ],
+    },
+    {
+      productName: 'Trà vải lài',
+      ingredients: [{ ingredientId: ingOolong.ingredientId, mAmount: 12, lAmount: 18 }],
+    },
+    {
+      productName: 'Chocolate đá xay',
+      ingredients: [
+        { ingredientId: ingChocolate.ingredientId, mAmount: 30, lAmount: 45 },
+        { ingredientId: ingMilk.ingredientId, mAmount: 150, lAmount: 220 },
+      ],
+    },
+    {
+      productName: 'Matcha đá xay',
+      ingredients: [
+        { ingredientId: ingMatcha.ingredientId, mAmount: 15, lAmount: 22 },
+        { ingredientId: ingMilk.ingredientId, mAmount: 150, lAmount: 220 },
+      ],
+    },
+    {
+      productName: 'Nước ép cam tươi',
+      ingredients: [{ ingredientId: ingOrange.ingredientId, mAmount: 2, lAmount: 3 }],
+    },
+  ];
+
+  const recipeRows: Array<{
+    productId: string;
+    sizeId: string;
+    ingredientId: string;
+    requiredAmount: number;
+  }> = [];
+
+  for (const def of recipeDefinitions) {
+    const productId = createdProducts.get(def.productName);
+    if (!productId) continue;
+    for (const ing of def.ingredients) {
+      recipeRows.push(
+        {
+          productId,
+          sizeId: sizeM.sizeId,
+          ingredientId: ing.ingredientId,
+          requiredAmount: ing.mAmount,
+        },
+        {
+          productId,
+          sizeId: sizeL.sizeId,
+          ingredientId: ing.ingredientId,
+          requiredAmount: ing.lAmount,
+        },
+      );
+    }
+  }
+
+  await prisma.recipeItems.createMany({ data: recipeRows });
+
+  console.log(
+    `Đã nạp xong: 5 danh mục, 2 size, 3 topping, 10 món nước, 9 nguyên liệu, ${recipeRows.length} công thức, 2 mã giảm giá và user ${demoUser.email}.`,
+  );
 }
 
 main()
