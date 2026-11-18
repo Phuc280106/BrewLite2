@@ -1,6 +1,9 @@
 import {
   Body,
   Controller,
+  Get,
+  Param,
+  Patch,
   Post,
   UnauthorizedException,
   UseGuards,
@@ -14,6 +17,7 @@ import { OrdersService } from './orders.service';
 interface JwtPayloadUser {
   userId?: string;
   sub?: string;
+  role?: string;
 }
 
 @ApiTags('Orders')
@@ -35,5 +39,55 @@ export class OrdersController {
       throw new UnauthorizedException('Không xác định được người dùng từ JWT');
     }
     return this.ordersService.createOrder(userId, createOrderDto);
+  }
+
+  // GET /api/v1/orders/me (Phân hệ 6 - FR-08: Lịch sử đơn hàng cá nhân)
+  @Get('me')
+  @ApiOperation({ summary: 'Lấy danh sách lịch sử đơn hàng của người dùng hiện tại' })
+  getMyOrders(@CurrentUser() user: JwtPayloadUser) {
+    const userId = user?.userId || user?.sub;
+    if (!userId) {
+      throw new UnauthorizedException('Không xác định được người dùng từ JWT');
+    }
+    return this.ordersService.findMyOrders(userId);
+  }
+
+  // GET /api/v1/orders/my-orders (Alias tương thích đặc tả usecase-order-history-spec.md)
+  @Get('my-orders')
+  @ApiOperation({ summary: 'Lấy lịch sử đơn hàng cá nhân (alias của /orders/me)' })
+  getMyOrdersAlias(@CurrentUser() user: JwtPayloadUser) {
+    const userId = user?.userId || user?.sub;
+    if (!userId) {
+      throw new UnauthorizedException('Không xác định được người dùng từ JWT');
+    }
+    return this.ordersService.findMyOrders(userId);
+  }
+
+  // GET /api/v1/orders/:id (Phân hệ 6 - FR-07: Chi tiết biên nhận & theo dõi trạng thái)
+  @Get(':id')
+  @ApiOperation({ summary: 'Lấy chi tiết biên nhận và tiến trình trạng thái đơn hàng' })
+  getOrderById(
+    @Param('id') orderId: string,
+    @CurrentUser() user: JwtPayloadUser,
+  ) {
+    const userId = user?.userId || user?.sub;
+    if (!userId) {
+      throw new UnauthorizedException('Không xác định được người dùng từ JWT');
+    }
+    return this.ordersService.findOneForUser(orderId, userId, user?.role);
+  }
+
+  // PATCH /api/v1/orders/:id/cancel (FR-12: Khách hủy đơn khi đang ở trạng thái PENDING)
+  @Patch(':id/cancel')
+  @ApiOperation({ summary: 'Hủy đơn hàng khi đang ở trạng thái chờ tiếp nhận (PENDING)' })
+  cancelMyOrder(
+    @Param('id') orderId: string,
+    @CurrentUser() user: JwtPayloadUser,
+  ) {
+    const userId = user?.userId || user?.sub;
+    if (!userId) {
+      throw new UnauthorizedException('Không xác định được người dùng từ JWT');
+    }
+    return this.ordersService.cancelMyOrder(orderId, userId);
   }
 }
