@@ -178,7 +178,7 @@ function CheckoutContent() {
             : 'Đơn hàng này đã được thanh toán.'}
         </p>
         <Link
-          href={order.status === 'CANCELLED' ? '/menu' : `/orders/${order.orderId}`}
+          href={order.status === 'CANCELLED' ? '/menu' : `/orders/${encodeURIComponent(order.orderId)}/receipt`}
           className="inline-block px-5 py-3 rounded-2xl bg-[#3D2615] text-white font-bold text-sm"
         >
           {order.status === 'CANCELLED' ? 'Đặt lại từ thực đơn' : 'Xem biên nhận'}
@@ -356,7 +356,7 @@ function CheckoutContent() {
             )}
             <button
               type="button"
-              onClick={() => router.push(`/orders/${orderId}`)}
+              onClick={() => router.push(`/orders/${encodeURIComponent(orderId)}/receipt`)}
               data-testid="view-receipt"
               className="mt-6 w-full min-h-[52px] rounded-full bg-[#3D2615] hover:bg-[#2A190D] text-white font-bold transition cursor-pointer"
             >

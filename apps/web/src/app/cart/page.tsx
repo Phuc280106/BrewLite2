@@ -238,11 +238,10 @@ export default function CartPage() {
 
             <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-center">
               <Link
-                href={`/checkout?orderId=${createdOrder.orderId}`}
-                data-testid="go-to-checkout"
+                href={`/orders/${encodeURIComponent(createdOrder.orderId)}/receipt`}
                 className="min-h-[44px] px-6 py-3 rounded-2xl bg-[#D97706] hover:bg-[#C26804] text-white font-bold text-sm flex items-center justify-center gap-2 transition"
               >
-                <span>Thanh toán ngay</span>
+                <span>Xem biên nhận &amp; tiến trình</span>
               </Link>
               <Link
                 href="/menu"

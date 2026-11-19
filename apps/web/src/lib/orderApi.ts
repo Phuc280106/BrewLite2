@@ -26,11 +26,6 @@ export interface OrderPaymentDto {
   transactionId: string | null;
 }
 
-export interface OrderLoyaltyTransactionDto {
-  type: 'EARN' | 'REDEEM';
-  pointsAmount: number;
-}
-
 export interface OrderDto {
   orderId: string;
   status: string;
@@ -39,7 +34,6 @@ export interface OrderDto {
   createdAt: string;
   items: OrderItemDto[];
   payments: OrderPaymentDto[];
-  loyaltyTransactions?: OrderLoyaltyTransactionDto[];
 }
 
 /** GET /orders/:orderId — ném Error với message tiếng Việt khi thất bại. */
@@ -58,22 +52,3 @@ export async function fetchOrder(orderId: string, signal?: AbortSignal): Promise
   }
   return payload as OrderDto;
 }
-
-/** Mã nhận món ngắn, ví dụ #8F3A */
-export function pickupCode(orderId: string): string {
-  return '#' + orderId.replace(/-/g, '').slice(0, 4).toUpperCase();
-}
-
-export function receiptCode(orderId: string): string {
-  return '#BL-' + orderId.replace(/-/g, '').slice(0, 4).toUpperCase();
-}
-
-export function lineBase(item: OrderItemDto): number {
-  const toppings = item.toppings.reduce((sum, t) => sum + Number(t.price), 0);
-  return (Number(item.unitPrice) - toppings) * item.quantity;
-}
-
-export const METHOD_LABEL: Record<string, string> = {
-  MOCK_WALLET: 'Ví Mock Wallet',
-  MOCK_CARD: 'Thẻ Mock Card',
-};

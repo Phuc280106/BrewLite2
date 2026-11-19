@@ -1,9 +1,6 @@
 import {
   Body,
   Controller,
-  Get,
-  Param,
-  ParseUUIDPipe,
   Post,
   UnauthorizedException,
   UseGuards,
@@ -38,19 +35,5 @@ export class OrdersController {
       throw new UnauthorizedException('Không xác định được người dùng từ JWT');
     }
     return this.ordersService.createOrder(userId, createOrderDto);
-  }
-
-  // GET /api/v1/orders/:orderId (Order Tracker: trạng thái, món, thanh toán của đơn)
-  @Get(':orderId')
-  @ApiOperation({ summary: 'Xem chi tiết & trạng thái đơn hàng của chính mình' })
-  getOrder(
-    @CurrentUser() user: JwtPayloadUser,
-    @Param('orderId', new ParseUUIDPipe()) orderId: string,
-  ) {
-    const userId = user?.userId || user?.sub;
-    if (!userId) {
-      throw new UnauthorizedException('Không xác định được người dùng từ JWT');
-    }
-    return this.ordersService.findOneForUser(orderId, userId);
   }
 }

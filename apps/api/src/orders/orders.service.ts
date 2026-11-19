@@ -200,7 +200,6 @@ export class OrdersService {
         },
         promotion: true,
         payments: true,
-        loyaltyTransactions: true,
       },
     });
 
@@ -208,16 +207,6 @@ export class OrdersService {
       throw new NotFoundException(`Không tìm thấy đơn hàng có mã: ${orderId}`);
     }
 
-    return order;
-  }
-
-  /** Lấy đơn của chính khách (dùng cho màn Xác nhận thanh toán & Order Tracker). */
-  async findOneForUser(orderId: string, userId: string) {
-    const order = await this.findOne(orderId);
-    if (order.userId !== userId) {
-      // Không lộ sự tồn tại của đơn người khác
-      throw new NotFoundException(`Không tìm thấy đơn hàng có mã: ${orderId}`);
-    }
     return order;
   }
 
