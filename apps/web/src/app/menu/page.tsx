@@ -288,11 +288,13 @@ export default function MenuPage() {
 
           {/* Tích điểm, User và Giỏ hàng ở góc phải */}
           <div className="flex items-center gap-3 shrink-0">
-            {/* Badge Tích điểm */}
-            <div className="bg-[#EEF7F2] text-[#2D7A4D] font-bold text-xs sm:text-sm px-3.5 py-1.5 rounded-full flex items-center gap-1.5 border border-[#D5EFE0] shadow-xs">
-              <Coins className="w-4 h-4 text-[#2D7A4D]" />
-              <span>{currentUser?.points != null ? `${currentUser.points} pts` : '120 pts'}</span>
-            </div>
+            {/* Badge Tích điểm: chỉ hiện khi đã đăng nhập (không còn hiện 120 điểm giả khi chưa đăng nhập) */}
+            {currentUser && (
+              <div className="bg-[#EEF7F2] text-[#2D7A4D] font-bold text-xs sm:text-sm px-3.5 py-1.5 rounded-full flex items-center gap-1.5 border border-[#D5EFE0] shadow-xs">
+                <Coins className="w-4 h-4 text-[#2D7A4D]" />
+                <span>{currentUser.points ?? 0} pts</span>
+              </div>
+            )}
 
             {/* Icon User trên desktop */}
             <div className="relative hidden sm:block">
@@ -357,7 +359,7 @@ export default function MenuPage() {
                         <Coins className="w-3.5 h-3.5 text-[#2D7A4D]" />
                         Điểm BrewLite
                       </span>
-                      <span className="font-bold text-[#2D7A4D]">{currentUser.points ?? 120} pts</span>
+                      <span className="font-bold text-[#2D7A4D]">{currentUser.points ?? 0} pts</span>
                     </div>
 
                     {/* Nút Đăng xuất */}

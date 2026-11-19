@@ -78,6 +78,12 @@ describe('AuthService', () => {
           email: registerDto.email,
           passwordHash: expect.any(String),
           role: 'CUSTOMER',
+          loyalty: {
+            create: {
+              points: 10,
+              transactions: { create: { type: 'EARN', pointsAmount: 10 } },
+            },
+          },
         },
         select: {
           userId: true,

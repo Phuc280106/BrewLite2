@@ -10,6 +10,9 @@ import { PrismaService } from '../prisma/prisma.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 
+/** Tặng điểm chào mừng khi tạo tài khoản mới. */
+export const WELCOME_BONUS_POINTS = 10;
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -47,6 +50,15 @@ export class AuthService {
         email: emailClean,
         passwordHash,
         role: 'CUSTOMER',
+        // Tạo ví điểm kèm 10 điểm chào mừng trong cùng một lần ghi (nguyên tử với việc tạo user)
+        loyalty: {
+          create: {
+            points: WELCOME_BONUS_POINTS,
+            transactions: {
+              create: { type: 'EARN', pointsAmount: WELCOME_BONUS_POINTS },
+            },
+          },
+        },
       },
       select: {
         userId: true,

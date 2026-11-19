@@ -238,6 +238,12 @@ export default function CartPage() {
 
             <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-center">
               <Link
+                href={`/orders/${encodeURIComponent(createdOrder.orderId)}/receipt`}
+                className="min-h-[44px] px-6 py-3 rounded-2xl bg-[#D97706] hover:bg-[#C26804] text-white font-bold text-sm flex items-center justify-center gap-2 transition"
+              >
+                <span>Xem biên nhận &amp; tiến trình</span>
+              </Link>
+              <Link
                 href="/menu"
                 className="min-h-[44px] px-6 py-3 rounded-2xl bg-[#3D2615] hover:bg-[#2A190D] text-white font-bold text-sm flex items-center justify-center gap-2 transition"
               >
