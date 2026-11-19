@@ -12,6 +12,7 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrderDto, OrderItemInputDto } from './dto/create-order.dto';
+import { ORDER_PAYMENT_TTL_MS } from './order-expiry.constants';
 
 interface ValidatedOrderLine {
   productId: string;
@@ -117,6 +118,76 @@ export class OrdersService {
     });
   }
 
+  /**
+   * Sequence "Hủy đơn & hoàn kho khi quá 15 phút" (huyDonQuaHan):
+   * tìm đơn PENDING quá hạn, mỗi đơn xử lý trong 1 transaction riêng:
+   * chuyển CANCELLED + hoàn kho nguyên liệu. Trả về số đơn đã hủy.
+   */
+  async cancelExpiredOrders(now: Date = new Date()): Promise<number> {
+    const threshold = new Date(now.getTime() - ORDER_PAYMENT_TTL_MS);
+
+    // timDonChoThanhToanQuaHan
+    const expiredOrders = await this.prisma.order.findMany({
+      where: { status: OrderStatus.PENDING, createdAt: { lt: threshold } },
+      select: { orderId: true },
+    });
+
+    let cancelled = 0;
+    for (const { orderId } of expiredOrders) {
+      try {
+        if (await this.cancelAndRestoreStock(orderId)) cancelled += 1;
+      } catch (error) {
+        // Một đơn lỗi không được chặn các đơn còn lại; lượt quét sau sẽ thử lại
+        console.error(`[OrdersService] Không thể hủy đơn quá hạn ${orderId}:`, error);
+      }
+    }
+    return cancelled;
+  }
+
+  private async cancelAndRestoreStock(orderId: string): Promise<boolean> {
+    // batDauGiaoDich ... xacNhanGiaoDich (BEGIN ... COMMIT)
+    return this.prisma.$transaction(async (tx) => {
+      // Chốt trạng thái trước: nếu khách vừa thanh toán xong (đã PREPARING) thì bỏ qua đơn này
+      const updated = await tx.order.updateMany({
+        where: { orderId, status: OrderStatus.PENDING },
+        data: { status: OrderStatus.CANCELLED },
+      });
+      if (updated.count !== 1) return false;
+
+      const order = await tx.order.findUniqueOrThrow({
+        where: { orderId },
+        include: { items: true },
+      });
+
+      // hoanKhoNguyenLieu(donHang): cộng lại đúng lượng đã trừ ở createOrder
+      const restoreByIngredient = new Map<string, number>();
+      for (const item of order.items) {
+        const recipes = await tx.recipeItems.findMany({
+          where: { productId: item.productId, sizeId: item.sizeId },
+        });
+        for (const recipe of recipes) {
+          restoreByIngredient.set(
+            recipe.ingredientId,
+            (restoreByIngredient.get(recipe.ingredientId) ?? 0) +
+              recipe.requiredAmount * item.quantity,
+          );
+        }
+      }
+
+      // Sắp xếp theo id để thứ tự khóa dòng giống createOrder, tránh deadlock
+      for (const ingredientId of Array.from(restoreByIngredient.keys()).sort()) {
+        await tx.ingredient.update({
+          where: { ingredientId },
+          data: {
+            stock: { increment: restoreByIngredient.get(ingredientId) ?? 0 },
+            version: { increment: 1 },
+          },
+        });
+      }
+      return true;
+    });
+  }
+
   async findOne(orderId: string) {
     const order = await this.prisma.order.findUnique({
       where: { orderId },
@@ -129,6 +200,7 @@ export class OrdersService {
         },
         promotion: true,
         payments: true,
+        loyaltyTransactions: true,
       },
     });
 
@@ -136,6 +208,16 @@ export class OrdersService {
       throw new NotFoundException(`Không tìm thấy đơn hàng có mã: ${orderId}`);
     }
 
+    return order;
+  }
+
+  /** Lấy đơn của chính khách (dùng cho màn Xác nhận thanh toán & Order Tracker). */
+  async findOneForUser(orderId: string, userId: string) {
+    const order = await this.findOne(orderId);
+    if (order.userId !== userId) {
+      // Không lộ sự tồn tại của đơn người khác
+      throw new NotFoundException(`Không tìm thấy đơn hàng có mã: ${orderId}`);
+    }
     return order;
   }
 
