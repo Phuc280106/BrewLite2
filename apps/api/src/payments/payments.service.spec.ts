@@ -165,7 +165,10 @@ describe('PaymentsService', () => {
     );
     mockPrisma.payment.findFirst
       .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce({ ...successPayment, order: { status: OrderStatus.PREPARING } });
+      .mockResolvedValueOnce({
+        ...successPayment,
+        order: { status: OrderStatus.PREPARING, loyaltyTransactions: [{ pointsAmount: 10 }] },
+      });
 
     const res = await service.processPayment('user-1', dto, KEY);
     expect(res).toMatchObject({ paymentId: 'pay-1', idempotentReplay: true });
