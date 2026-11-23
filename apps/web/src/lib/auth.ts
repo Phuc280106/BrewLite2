@@ -91,6 +91,44 @@ function saveSession(token: string, user: AuthUser): void {
 }
 
 /**
+ * Cập nhật một phần thông tin người dùng đang đăng nhập (ví dụ số điểm thưởng)
+ * và báo cho các màn hình đang lắng nghe (menu, giỏ hàng...) cập nhật theo.
+ */
+export function updateCurrentUser(patch: Partial<AuthUser>): void {
+  if (typeof window === 'undefined') return;
+  const current = getCurrentUser();
+  if (!current) return;
+  try {
+    const next: AuthUser = { ...current, ...patch };
+    localStorage.setItem(USER_KEY, JSON.stringify(next));
+    window.dispatchEvent(new CustomEvent(AUTH_EVENT, { detail: next }));
+  } catch (err) {
+    console.error('Không thể cập nhật thông tin người dùng:', err);
+  }
+}
+
+/**
+ * Đồng bộ số dư điểm thưởng thật từ server (GET /loyalty/me).
+ * Lỗi mạng / token demo không hợp lệ thì bỏ qua, giữ nguyên số điểm đang hiển thị.
+ */
+export async function syncLoyaltyPoints(): Promise<void> {
+  const token = getAuthToken();
+  if (!token) return;
+  try {
+    const res = await fetch(`${API_BASE}/loyalty/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (typeof data.points === 'number') {
+      updateCurrentUser({ points: data.points });
+    }
+  } catch {
+    // Bỏ qua
+  }
+}
+
+/**
  * Đăng xuất tài khoản
  */
 export function logout(): void {
@@ -191,10 +229,11 @@ export async function login(credentials: LoginCredentials): Promise<AuthResponse
         name: data.user?.name || emailClean.split('@')[0],
         email: data.user?.email || emailClean,
         role: data.user?.role || 'CUSTOMER',
-        points: data.user?.points ?? 120,
+        points: data.user?.points ?? 0, // số dư thật được đồng bộ ngay sau đó bởi syncLoyaltyPoints
       };
 
       saveSession(token, user);
+      void syncLoyaltyPoints(); // backend login chưa trả điểm -> lấy số dư thật từ DB
       return { accessToken: token, user };
     }
 
@@ -300,7 +339,7 @@ export async function register(data: RegisterData): Promise<AuthResponse> {
         name: respData.user?.name || nameClean,
         email: respData.user?.email || emailClean,
         role: respData.user?.role || 'CUSTOMER',
-        points: 0,
+        points: 10, // Tặng 10 điểm chào mừng (backend đã ghi vào ví điểm)
       };
 
       saveSession(token, user);
