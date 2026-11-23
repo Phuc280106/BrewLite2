@@ -495,7 +495,10 @@ export default function MenuPage() {
           </button>
 
           {/* Nút Đơn hàng */}
-          <button className="flex flex-col sm:flex-row items-center gap-1 text-stone-500 hover:text-[#3D2615] transition px-3 py-1.5 rounded-full text-xs sm:text-sm font-medium">
+          <button
+            onClick={() => router.push('/orders/my-orders')}
+            className="flex flex-col sm:flex-row items-center gap-1 text-stone-500 hover:text-[#3D2615] transition px-3 py-1.5 rounded-full text-xs sm:text-sm font-medium cursor-pointer"
+          >
             <ReceiptText className="w-4 h-4" />
             <span>Đơn hàng</span>
           </button>

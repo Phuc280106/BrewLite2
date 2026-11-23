@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
   UnauthorizedException,
@@ -137,6 +138,177 @@ export class OrdersService {
     }
 
     return order;
+  }
+
+  /**
+   * FR-08: Lấy danh sách lịch sử đơn hàng cá nhân của người dùng đang đăng nhập
+   * Sắp xếp theo thời gian tạo mới nhất lên đầu (createdAt DESC).
+   */
+  async findMyOrders(authUserId: string) {
+    if (!authUserId) {
+      throw new UnauthorizedException('Vui lòng đăng nhập để xem lịch sử đơn hàng');
+    }
+
+    return this.prisma.order.findMany({
+      where: { userId: authUserId },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        items: {
+          include: {
+            size: true,
+            toppings: true,
+            product: {
+              select: {
+                productId: true,
+                imageUrl: true,
+              },
+            },
+          },
+        },
+        promotion: true,
+        payments: {
+          orderBy: { createdAt: 'desc' },
+        },
+        loyaltyTransactions: true,
+      },
+    });
+  }
+
+  /**
+   * FR-07: Lấy chi tiết biên nhận & trạng thái đơn hàng có kiểm tra quyền sở hữu.
+   * Chủ đơn hàng hoặc nhân viên quầy (BARISTA / ADMIN) đều có quyền tra cứu.
+   */
+  async findOneForUser(orderId: string, authUserId: string, role?: string) {
+    if (!authUserId) {
+      throw new UnauthorizedException('Vui lòng đăng nhập để xem biên nhận đơn hàng');
+    }
+
+    const order = await this.prisma.order.findUnique({
+      where: { orderId },
+      include: {
+        items: {
+          include: {
+            size: true,
+            toppings: true,
+            product: {
+              select: {
+                productId: true,
+                imageUrl: true,
+              },
+            },
+          },
+        },
+        promotion: true,
+        payments: {
+          orderBy: { createdAt: 'desc' },
+        },
+        loyaltyTransactions: true,
+      },
+    });
+
+    if (!order) {
+      throw new NotFoundException(`Không tìm thấy đơn hàng có mã: ${orderId}`);
+    }
+
+    const isStaff = role === 'BARISTA' || role === 'ADMIN';
+    if (order.userId !== authUserId && !isStaff) {
+      throw new ForbiddenException('Bạn không có quyền xem thông tin đơn hàng này');
+    }
+
+    return order;
+  }
+
+  /**
+   * FR-12: Khách hàng hủy đơn hàng khi đơn vẫn đang ở trạng thái PENDING (chờ tiếp nhận)
+   * và hoàn trả lại tồn kho nguyên liệu trong cùng transaction.
+   */
+  async cancelMyOrder(orderId: string, authUserId: string) {
+    if (!authUserId) {
+      throw new UnauthorizedException('Vui lòng đăng nhập để hủy đơn hàng');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const order = await tx.order.findUnique({
+        where: { orderId },
+        include: {
+          items: {
+            include: {
+              product: {
+                include: {
+                  recipeItems: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (!order) {
+        throw new NotFoundException(`Không tìm thấy đơn hàng có mã: ${orderId}`);
+      }
+
+      if (order.userId !== authUserId) {
+        throw new ForbiddenException('Bạn không có quyền hủy đơn hàng này');
+      }
+
+      if (order.status !== OrderStatus.PENDING) {
+        throw new BadRequestException(
+          'Đơn hàng đã được tiếp nhận hoặc xử lý, không thể hủy.',
+        );
+      }
+
+      const refundByIngredient = new Map<string, number>();
+      for (const item of order.items) {
+        const recipes = item.product.recipeItems.filter(
+          (r) => r.sizeId === item.sizeId,
+        );
+        for (const recipe of recipes) {
+          const current = refundByIngredient.get(recipe.ingredientId) ?? 0;
+          refundByIngredient.set(
+            recipe.ingredientId,
+            current + recipe.requiredAmount * item.quantity,
+          );
+        }
+      }
+
+      const sortedIngredientIds = Array.from(refundByIngredient.keys()).sort();
+      for (const ingredientId of sortedIngredientIds) {
+        const refundAmount = refundByIngredient.get(ingredientId) ?? 0;
+        if (refundAmount > 0) {
+          await tx.ingredient.update({
+            where: { ingredientId },
+            data: {
+              stock: { increment: refundAmount },
+              version: { increment: 1 },
+            },
+          });
+        }
+      }
+
+      return tx.order.update({
+        where: { orderId },
+        data: { status: OrderStatus.CANCELLED },
+        include: {
+          items: {
+            include: {
+              size: true,
+              toppings: true,
+              product: {
+                select: {
+                  productId: true,
+                  imageUrl: true,
+                },
+              },
+            },
+          },
+          promotion: true,
+          payments: {
+            orderBy: { createdAt: 'desc' },
+          },
+          loyaltyTransactions: true,
+        },
+      });
+    });
   }
 
   private async resolveUserId(
