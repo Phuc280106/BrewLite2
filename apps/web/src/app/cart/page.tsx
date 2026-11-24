@@ -33,6 +33,17 @@ interface CreatedOrderSummary {
   itemCount: number;
 }
 
+// ID thật trong database là UUID. Món có ID khác (vd 'size-m') là dữ liệu cũ/giả còn sót trong localStorage.
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function hasInvalidIds(item: CartItem): boolean {
+  return (
+    !UUID_PATTERN.test(item.productId) ||
+    !UUID_PATTERN.test(item.size.sizeId) ||
+    item.toppings.some((t) => !UUID_PATTERN.test(t.toppingId))
+  );
+}
+
 export default function CartPage() {
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
@@ -94,6 +105,15 @@ export default function CartPage() {
     const token = getAuthToken();
     if (!token || !currentUser) {
       router.push('/auth');
+      return;
+    }
+
+    const staleItems = items.filter(hasInvalidIds);
+    if (staleItems.length > 0) {
+      staleItems.forEach((item) => removeItem(item.id));
+      setSubmitError(
+        `Đã gỡ ${staleItems.length} món có dữ liệu cũ/không hợp lệ khỏi giỏ hàng. Vui lòng thêm lại các món đó từ thực đơn rồi đặt hàng.`,
+      );
       return;
     }
 
@@ -241,7 +261,7 @@ export default function CartPage() {
                 href={`/orders/${encodeURIComponent(createdOrder.orderId)}/receipt`}
                 className="min-h-[44px] px-6 py-3 rounded-2xl bg-[#D97706] hover:bg-[#C26804] text-white font-bold text-sm flex items-center justify-center gap-2 transition"
               >
-                <span>Xem biên nhận &amp; tiến trình</span>
+                <span>Xem biên nhận &amp; thanh toán</span>
               </Link>
               <Link
                 href="/menu"

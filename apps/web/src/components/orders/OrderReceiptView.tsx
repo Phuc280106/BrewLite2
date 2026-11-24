@@ -244,6 +244,10 @@ export const OrderReceiptView: React.FC<OrderReceiptViewProps> = ({
   const earnedPoints = calculateEarnedPoints(order);
   const cancellable = canCancelOrder(order.status);
   const latestPayment = order.payments?.[0];
+  // Chỉ đơn PENDING (chưa thanh toán thành công) mới thanh toán được; sau khi thanh toán đơn chuyển PREPARING.
+  const payable = order.status === 'PENDING' && latestPayment?.status !== 'SUCCESS';
+  const payButtonLabel =
+    latestPayment?.status === 'FAILED' ? 'Thanh toán lại' : 'Thanh toán ngay';
   const discountAmount = Number(order.discountAmount) || 0;
   const totalAmount = Number(order.totalAmount) || 0;
 
@@ -310,7 +314,11 @@ export const OrderReceiptView: React.FC<OrderReceiptViewProps> = ({
       </header>
 
       {/* 2. Main Receipt & Tracking Content (Figma 14:48) */}
-      <main className="flex-1 w-full max-w-[480px] mx-auto px-5 pt-3 pb-[148px] space-y-3">
+      <main
+        className={`flex-1 w-full max-w-[480px] mx-auto px-5 pt-3 space-y-3 ${
+          payable ? 'pb-[212px]' : 'pb-[148px]'
+        }`}
+      >
         {/* Banner trạng thái & thời gian dự kiến (Figma 14:49) */}
         <section
           data-testid="receipt-status-banner"
@@ -536,6 +544,19 @@ export const OrderReceiptView: React.FC<OrderReceiptViewProps> = ({
           <p className="text-[14px] leading-[20px] text-[#6B6B66] text-center">
             {statusMeta.cancelHint}
           </p>
+
+          {payable && (
+            <Link
+              href={`/checkout?orderId=${encodeURIComponent(order.orderId)}`}
+              data-testid="pay-order-button"
+              className="h-[48px] w-full rounded-[24px] bg-[#3D2615] hover:bg-[#2A190D] text-white font-semibold text-[14px] flex items-center justify-center gap-2 transition shadow-xs"
+            >
+              <Wallet className="w-4 h-4" />
+              <span>
+                {payButtonLabel} · {formatReceiptPrice(totalAmount)}
+              </span>
+            </Link>
+          )}
 
           <div className="flex items-center gap-2.5">
             <button
