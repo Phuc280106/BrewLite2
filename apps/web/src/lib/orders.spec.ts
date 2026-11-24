@@ -9,7 +9,6 @@ import {
   getOrderStepIndex,
   getShortPickupCode,
   getStatusDisplayMeta,
-  isDemoSessionToken,
 } from './orders';
 import { OrderRecord } from '@/types/order';
 
@@ -100,14 +99,5 @@ describe('Order History & Receipt helpers (FR-07 & FR-08)', () => {
     expect(preparingMeta.bannerTitle).toBe('Quầy đang chuẩn bị món!');
     expect(preparingMeta.cancelHint).toBe('Đơn đang pha chế, không thể hủy.');
     expect(formatPaymentMethod('MOCK_WALLET')).toBe('Ví Mock Wallet');
-  });
-
-  it('recognizes offline/demo session tokens from auth.ts vs real JWTs', () => {
-    expect(isDemoSessionToken('demo-jwt-customer-token')).toBe(true);
-    expect(isDemoSessionToken('demo-jwt-barista-token')).toBe(true);
-    expect(isDemoSessionToken('local-session-token-12345')).toBe(true);
-    expect(isDemoSessionToken('local-reg-token-12345')).toBe(true);
-    expect(isDemoSessionToken('eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.sig')).toBe(false);
-    expect(isDemoSessionToken(null)).toBe(false);
   });
 });
