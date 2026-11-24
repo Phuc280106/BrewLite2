@@ -35,12 +35,12 @@ describe('Order History & Receipt helpers (FR-07 & FR-08)', () => {
     expect(uuidCodeA).toBe(uuidCodeB);
   });
 
-  it('maps OrderStatus accurately to 4-step OrderStatusStepper index', () => {
+  it('maps OrderStatus accurately to 5-step OrderStatusStepper index', () => {
     expect(getOrderStepIndex('PENDING')).toBe(0);
-    expect(getOrderStepIndex('PAID')).toBe(0);
-    expect(getOrderStepIndex('PREPARING')).toBe(1);
-    expect(getOrderStepIndex('READY')).toBe(2);
-    expect(getOrderStepIndex('COMPLETED')).toBe(3);
+    expect(getOrderStepIndex('PAID')).toBe(1);
+    expect(getOrderStepIndex('PREPARING')).toBe(2);
+    expect(getOrderStepIndex('READY')).toBe(3);
+    expect(getOrderStepIndex('COMPLETED')).toBe(4);
     expect(getOrderStepIndex('CANCELLED')).toBe(-1);
     expect(getOrderStepIndex('PAYMENT_FAILED')).toBe(-1);
   });
@@ -60,9 +60,10 @@ describe('Order History & Receipt helpers (FR-07 & FR-08)', () => {
     ).toBe(0);
   });
 
-  it('allows cancelling only when status is PENDING (FR-12)', () => {
+  it('allows cancelling when status is PENDING, PAID, or PAYMENT_FAILED (FR-12 & State Machine)', () => {
     expect(canCancelOrder('PENDING')).toBe(true);
-    expect(canCancelOrder('PAID')).toBe(false);
+    expect(canCancelOrder('PAID')).toBe(true);
+    expect(canCancelOrder('PAYMENT_FAILED')).toBe(true);
     expect(canCancelOrder('PREPARING')).toBe(false);
     expect(canCancelOrder('READY')).toBe(false);
     expect(canCancelOrder('COMPLETED')).toBe(false);
@@ -91,8 +92,12 @@ describe('Order History & Receipt helpers (FR-07 & FR-08)', () => {
     expect(filterOrdersByTab(orders, 'COMPLETED')).toHaveLength(1);
     expect(filterOrdersByTab(orders, 'CANCELLED')).toHaveLength(1);
 
+    const paidMeta = getStatusDisplayMeta('PAID');
+    expect(paidMeta.bannerTitle).toBe('Đã thanh toán thành công!');
+    expect(paidMeta.cancelHint).toBe('Bạn có thể hủy đơn trước khi quầy bắt đầu pha chế.');
+
     const preparingMeta = getStatusDisplayMeta('PREPARING');
-    expect(preparingMeta.bannerTitle).toBe('Thanh toán thành công!');
+    expect(preparingMeta.bannerTitle).toBe('Quầy đang chuẩn bị món!');
     expect(preparingMeta.cancelHint).toBe('Đơn đang pha chế, không thể hủy.');
     expect(formatPaymentMethod('MOCK_WALLET')).toBe('Ví Mock Wallet');
   });

@@ -12,6 +12,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CreateOrderDto } from './dto/create-order.dto';
+import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { OrdersService } from './orders.service';
 
 interface JwtPayloadUser {
@@ -77,9 +78,35 @@ export class OrdersController {
     return this.ordersService.findOneForUser(orderId, userId, user?.role);
   }
 
-  // PATCH /api/v1/orders/:id/cancel (FR-12: Khách hủy đơn khi đang ở trạng thái PENDING)
+  // PATCH /api/v1/orders/:id/status (Phân hệ 6: Order State Machine assertTransition)
+  @Patch(':id/status')
+  @ApiOperation({
+    summary:
+      'Cập nhật trạng thái đơn hàng (PAID -> PREPARING -> READY -> COMPLETED hoặc CANCELLED)',
+  })
+  updateOrderStatus(
+    @Param('id') orderId: string,
+    @CurrentUser() user: JwtPayloadUser,
+    @Body() dto: UpdateOrderStatusDto,
+  ) {
+    const userId = user?.userId || user?.sub;
+    if (!userId) {
+      throw new UnauthorizedException('Không xác định được người dùng từ JWT');
+    }
+    return this.ordersService.updateOrderStatus(
+      orderId,
+      dto.status,
+      userId,
+      user?.role,
+    );
+  }
+
+  // PATCH /api/v1/orders/:id/cancel (FR-12: Khách hủy đơn khi đang ở trạng thái PENDING / PAID / PAYMENT_FAILED)
   @Patch(':id/cancel')
-  @ApiOperation({ summary: 'Hủy đơn hàng khi đang ở trạng thái chờ tiếp nhận (PENDING)' })
+  @ApiOperation({
+    summary:
+      'Hủy đơn hàng khi đang ở trạng thái chờ tiếp nhận hoặc thanh toán thất bại (PENDING/PAID/PAYMENT_FAILED)',
+  })
   cancelMyOrder(
     @Param('id') orderId: string,
     @CurrentUser() user: JwtPayloadUser,

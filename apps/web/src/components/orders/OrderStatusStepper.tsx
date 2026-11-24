@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { BellRing, Check, Clock, Coffee, XCircle } from 'lucide-react';
+import { BellRing, Check, Clock, Coffee, CreditCard, XCircle } from 'lucide-react';
 import { OrderStatus } from '@/types/order';
 import { getOrderStepIndex } from '@/lib/orders';
 
@@ -11,6 +11,7 @@ interface OrderStatusStepperProps {
 
 const STEPS = [
   { key: 'PENDING', lines: ['Chờ tiếp', 'nhận'] },
+  { key: 'PAID', lines: ['Đã thanh', 'toán'] },
   { key: 'PREPARING', lines: ['Đang pha', 'chế'] },
   { key: 'READY', lines: ['Sẵn sàng', 'lấy món'] },
   { key: 'COMPLETED', lines: ['Hoàn tất'] },
@@ -54,8 +55,14 @@ export const OrderStatusStepper: React.FC<OrderStatusStepperProps> = ({
     if (stepIndex === 0) {
       return <Clock className="w-[18px] h-[18px] text-white animate-brewlite-cup" />;
     }
-    if (stepIndex === 2) {
+    if (stepIndex === 1) {
+      return <CreditCard className="w-[18px] h-[18px] text-white animate-brewlite-cup" />;
+    }
+    if (stepIndex === 3) {
       return <BellRing className="w-[18px] h-[18px] text-white animate-brewlite-cup" />;
+    }
+    if (stepIndex === 4) {
+      return <Check className="w-[18px] h-[18px] text-white stroke-[2.75]" />;
     }
     return <Coffee className="w-[19px] h-[19px] text-white animate-brewlite-cup" />;
   };
@@ -66,8 +73,8 @@ export const OrderStatusStepper: React.FC<OrderStatusStepperProps> = ({
       aria-label="Tiến trình xử lý đơn hàng"
       className="relative w-full pt-1 pb-1"
     >
-      {/* 4 cột mốc trạng thái khớp đúng bố cục & màu sắc Figma 14:50 */}
-      <div className="grid grid-cols-4 relative">
+      {/* 5 cột mốc trạng thái tách biệt rõ ràng PAID và PREPARING */}
+      <div className="grid grid-cols-5 relative">
         {STEPS.map((step, index) => {
           const isCompleted = isAllCompleted || index < activeIndex;
           const isActive = !isAllCompleted && index === activeIndex;
@@ -85,7 +92,7 @@ export const OrderStatusStepper: React.FC<OrderStatusStepperProps> = ({
               {index < STEPS.length - 1 && (
                 <div
                   aria-hidden="true"
-                  className={`absolute top-[17px] left-[calc(50%+20px)] right-[calc(-50%+20px)] h-[2px] rounded-[1px] transition-colors duration-300 ${
+                  className={`absolute top-[17px] left-[calc(50%+18px)] right-[calc(-50%+18px)] h-[2px] rounded-[1px] transition-colors duration-300 ${
                     isConnectorCompleted ? 'bg-[#10B981]' : 'bg-[#DCD6CF]'
                   }`}
                 />
@@ -116,9 +123,9 @@ export const OrderStatusStepper: React.FC<OrderStatusStepperProps> = ({
                 )}
               </div>
 
-              {/* Nhãn mốc 2 dòng căn giữa giống hệt Figma */}
+              {/* Nhãn mốc 2 dòng căn giữa */}
               <div
-                className={`text-[13px] sm:text-[14px] leading-[18px] text-center select-none ${
+                className={`text-[11px] sm:text-[13px] leading-[15px] sm:leading-[17px] text-center select-none ${
                   isCompleted
                     ? 'font-semibold text-[#147D56]'
                     : isActive
