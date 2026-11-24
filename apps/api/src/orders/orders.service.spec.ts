@@ -81,12 +81,16 @@ describe('OrdersService', () => {
     });
 
     const result = await service.createOrder('user-1', {
+      pickupMethod: 'DINE_IN',
       items: [
         {
           productId: 'prod-1',
           sizeId: 'size-l',
           quantity: 2,
           toppingIds: ['top-1'],
+          sugarLevel: '50%',
+          iceLevel: 'Ít đá',
+          note: '  Không ống hút  ',
         },
       ],
     });
@@ -106,8 +110,18 @@ describe('OrdersService', () => {
         data: expect.objectContaining({
           userId: 'user-1',
           status: OrderStatus.PENDING,
+          pickupMethod: 'DINE_IN',
           totalAmount: 102000,
           discountAmount: 0,
+          items: {
+            create: [
+              expect.objectContaining({
+                sugarLevel: '50%',
+                iceLevel: 'Ít đá',
+                note: 'Không ống hút',
+              }),
+            ],
+          },
         }),
       }),
     );

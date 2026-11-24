@@ -23,6 +23,9 @@ interface ValidatedOrderLine {
   unitPrice: number;
   quantity: number;
   toppingIds: string[];
+  sugarLevel?: string;
+  iceLevel?: string;
+  note?: string;
 }
 
 interface LockedIngredientRow {
@@ -72,6 +75,7 @@ export class OrdersService {
           userId,
           promotionId,
           status: OrderStatus.PENDING,
+          pickupMethod: dto.pickupMethod ?? 'TAKEAWAY',
           totalAmount,
           discountAmount: totalDiscount,
           pointsRedeemed,
@@ -82,6 +86,9 @@ export class OrdersService {
               productName: line.productName,
               unitPrice: line.unitPrice,
               quantity: line.quantity,
+              sugarLevel: line.sugarLevel,
+              iceLevel: line.iceLevel,
+              note: line.note,
               toppings:
                 line.toppingIds.length > 0
                   ? { connect: line.toppingIds.map((toppingId) => ({ toppingId })) }
@@ -559,6 +566,9 @@ export class OrdersService {
         unitPrice,
         quantity: item.quantity,
         toppingIds: uniqueToppingIds,
+        sugarLevel: item.sugarLevel?.trim() || undefined,
+        iceLevel: item.iceLevel?.trim() || undefined,
+        note: item.note?.trim() || undefined,
       });
 
       const matchingRecipes = product.recipeItems.filter(
