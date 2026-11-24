@@ -31,131 +31,6 @@ import {
   LogOut,
 } from 'lucide-react';
 
-const FALLBACK_CATEGORIES: Category[] = [
-  { categoryId: 'ca-phe-phin', name: 'Cà phê pha phin', description: 'Cà phê pha phin truyền thống và máy' },
-  { categoryId: 'tra-sua', name: 'Trà sữa', description: 'Trà sữa đậm vị kem béo' },
-  { categoryId: 'tra-trai-cay', name: 'Trà trái cây tươi', description: 'Trà hoa quả tươi mát thanh nhiệt' },
-  { categoryId: 'da-xay', name: 'Đá xay Freeze', description: 'Thức uống đá xay nhuyễn mát lạnh' },
-];
-
-const FALLBACK_PRODUCTS: Product[] = [
-  {
-    productId: '1',
-    name: 'Trà Sữa Oolong Nướng',
-    description: 'Hương trà nướng, béo mịn',
-    basePrice: 38000,
-    categoryId: 'tra-sua',
-    category: { categoryId: 'tra-sua', name: 'Trà sữa' },
-    imageUrl: 'https://images.unsplash.com/photo-1541658016709-82535e94bc69?w=500&q=80',
-    sizes: [
-      { sizeId: 'size-m', name: 'Size M (Vừa)', priceAdjustment: 0 },
-      { sizeId: 'size-l', name: 'Size L (Lớn)', priceAdjustment: 8000 },
-    ],
-    toppings: [
-      { toppingId: 'top-1', name: 'Trân châu hoàng kim', price: 8000 },
-      { toppingId: 'top-2', name: 'Thạch củ năng giòn', price: 6000 },
-      { toppingId: 'top-3', name: 'Kem Cheese Macchiato', price: 10000 },
-    ],
-  },
-  {
-    productId: '2',
-    name: 'Cà Phê Muối Hoàng Gia',
-    description: 'Vị béo ngậy, đậm đà',
-    basePrice: 35000,
-    categoryId: 'ca-phe-phin',
-    category: { categoryId: 'ca-phe-phin', name: 'Cà phê pha phin' },
-    imageUrl: 'https://images.unsplash.com/photo-1517701604599-bb29b565090c?w=500&q=80',
-    sizes: [
-      { sizeId: 'size-m', name: 'Size M (Vừa)', priceAdjustment: 0 },
-      { sizeId: 'size-l', name: 'Size L (Lớn)', priceAdjustment: 8000 },
-    ],
-    toppings: [
-      { toppingId: 'top-1', name: 'Kem béo muối', price: 8000 },
-      { toppingId: 'top-2', name: 'Thạch cà phê', price: 6000 },
-    ],
-  },
-  {
-    productId: '3',
-    name: 'Trà Đào Cam Sả Thượng Hạng',
-    description: 'Hương sả thanh khiết kết hợp đào giòn ngọt',
-    basePrice: 39000,
-    categoryId: 'tra-trai-cay',
-    category: { categoryId: 'tra-trai-cay', name: 'Trà trái cây tươi' },
-    imageUrl: 'https://images.unsplash.com/photo-1556881286-fc6915169721?w=500&q=80',
-    sizes: [
-      { sizeId: 'size-m', name: 'Size M (Vừa)', priceAdjustment: 0 },
-      { sizeId: 'size-l', name: 'Size L (Lớn)', priceAdjustment: 8000 },
-    ],
-    toppings: [
-      { toppingId: 'top-1', name: 'Đào ngâm miếng', price: 8000 },
-      { toppingId: 'top-2', name: 'Hạt chia', price: 5000 },
-    ],
-  },
-  {
-    productId: '4',
-    name: 'Cà phê sữa đá',
-    description: 'Đậm đà hương vị truyền thống phin nguyên chất',
-    basePrice: 29000,
-    categoryId: 'ca-phe-phin',
-    category: { categoryId: 'ca-phe-phin', name: 'Cà phê pha phin' },
-    imageUrl: 'https://images.unsplash.com/photo-1517701604599-bb29b565090c?w=500&q=80',
-  },
-  {
-    productId: '5',
-    name: 'Americano đá',
-    description: 'Espresso nguyên chất pha loãng mát lạnh thanh nhẹ',
-    basePrice: 35000,
-    categoryId: 'ca-phe-phin',
-    category: { categoryId: 'ca-phe-phin', name: 'Cà phê pha phin' },
-    imageUrl: 'https://images.unsplash.com/photo-1551030173-122aabc4489c?w=500&q=80',
-  },
-  {
-    productId: '6',
-    name: 'Trà sữa trân châu',
-    description: 'Trà đen thơm ngát cùng trân châu dai giòn thủ công',
-    basePrice: 35000,
-    categoryId: 'tra-sua',
-    category: { categoryId: 'tra-sua', name: 'Trà sữa' },
-    imageUrl: 'https://images.unsplash.com/photo-1541658016709-82535e94bc69?w=500&q=80',
-  },
-  {
-    productId: '7',
-    name: 'Trà sữa matcha',
-    description: 'Bột trà xanh Nhật Bản thanh khiết kết hợp sữa',
-    basePrice: 42000,
-    categoryId: 'tra-sua',
-    category: { categoryId: 'tra-sua', name: 'Trà sữa' },
-    imageUrl: 'https://images.unsplash.com/photo-1536256263959-770b48d82b0a?w=500&q=80',
-  },
-  {
-    productId: '8',
-    name: 'Trà vải lài',
-    description: 'Trà hoa lài ướp hương trái vải tươi mọng nước',
-    basePrice: 35000,
-    categoryId: 'tra-trai-cay',
-    category: { categoryId: 'tra-trai-cay', name: 'Trà trái cây tươi' },
-    imageUrl: 'https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=500&q=80',
-  },
-  {
-    productId: '9',
-    name: 'Chocolate đá xay',
-    description: 'Chocolate Bỉ đậm đặc xay cùng whipped cream',
-    basePrice: 49000,
-    categoryId: 'da-xay',
-    category: { categoryId: 'da-xay', name: 'Đá xay Freeze' },
-    imageUrl: 'https://images.unsplash.com/photo-1572490122747-3968b75cc699?w=500&q=80',
-  },
-  {
-    productId: '10',
-    name: 'Matcha đá xay',
-    description: 'Đá xay matcha thơm béo sảng khoái bùng nổ',
-    basePrice: 49000,
-    categoryId: 'da-xay',
-    category: { categoryId: 'da-xay', name: 'Đá xay Freeze' },
-    imageUrl: 'https://images.unsplash.com/photo-1576092768241-dec231879fc3?w=500&q=80',
-  },
-];
-
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
 
 export default function MenuPage() {
@@ -163,7 +38,7 @@ export default function MenuPage() {
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState<boolean>(false);
 
-  const [categories, setCategories] = useState<Category[]>(FALLBACK_CATEGORIES);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [searchKeyword, setSearchKeyword] = useState<string>('');
@@ -206,26 +81,21 @@ export default function MenuPage() {
       if (searchKeyword.trim()) params.append('search', searchKeyword.trim());
 
       const prodRes = await fetch(`${API_BASE}/products?${params.toString()}`, { cache: 'no-store' });
-      if (prodRes.ok) {
-        const prodData = await prodRes.json();
-        if (Array.isArray(prodData) && prodData.length > 0) {
-          setProducts(prodData);
-          return;
-        }
+      if (!prodRes.ok) {
+        throw new Error(`Máy chủ trả về lỗi ${prodRes.status}`);
       }
-      throw new Error('API Backend chưa có dữ liệu');
+      const prodData: unknown = await prodRes.json();
+      if (!Array.isArray(prodData)) {
+        throw new Error('Dữ liệu thực đơn không hợp lệ');
+      }
+      // Danh sách rỗng là kết quả hợp lệ (lọc/tìm kiếm không có món) -> hiện EmptyState
+      setProducts(prodData as Product[]);
     } catch {
-      let filtered = [...FALLBACK_PRODUCTS];
-      if (selectedCategoryId) {
-        filtered = filtered.filter((p) => p.categoryId === selectedCategoryId);
-      }
-      if (searchKeyword.trim()) {
-        const q = searchKeyword.toLowerCase();
-        filtered = filtered.filter(
-          (p) => p.name.toLowerCase().includes(q) || (p.description && p.description.toLowerCase().includes(q)),
-        );
-      }
-      setProducts(filtered);
+      // Không dùng dữ liệu giả: món giả có ID không phải UUID sẽ làm đặt hàng thất bại
+      setProducts([]);
+      setErrorMessage(
+        'Không thể tải thực đơn từ máy chủ. Hãy kiểm tra API (cổng 3001) đã chạy và database đã được seed, rồi bấm thử lại.',
+      );
     } finally {
       setIsLoading(false);
     }
