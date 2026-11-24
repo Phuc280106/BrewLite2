@@ -26,7 +26,7 @@ import {
   Gift,
 } from 'lucide-react';
 import { AuthMode, AuthUser } from '@/types/auth';
-import { login, register, DEMO_ACCOUNTS } from '@/lib/auth';
+import { login, register } from '@/lib/auth';
 
 interface AuthFormProps {
   initialMode?: AuthMode;
@@ -107,27 +107,6 @@ export function AuthForm({ initialMode = 'signin', onSuccess, className = '' }: 
   const handleModeSwitch = (newMode: AuthMode) => {
     setMode(newMode);
     setErrorMessage(null);
-  };
-
-  const handleFastLogin = async (acc: typeof DEMO_ACCOUNTS.customer) => {
-    setEmail(acc.email);
-    setPassword(acc.password);
-    setErrorMessage(null);
-    setIsLoading(true);
-
-    try {
-      const res = await login({ email: acc.email, password: acc.password });
-      if (onSuccess) {
-        onSuccess(res.user);
-      } else {
-        router.push('/menu');
-      }
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Đăng nhập không thành công';
-      setErrorMessage(msg);
-    } finally {
-      setIsLoading(false);
-    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -424,55 +403,7 @@ export function AuthForm({ initialMode = 'signin', onSuccess, className = '' }: 
         </form>
       )}
 
-      {/* Demo Fast-Login Section (Chỉ hiển thị ở chế độ Đăng nhập) */}
-      {mode === 'signin' && (
-        <div className="mt-6 pt-5 border-t border-[#E5E0D8]">
-          <p className="text-xs font-semibold text-stone-500 mb-3 text-center uppercase tracking-wider">
-            Tài khoản dùng thử nhanh (1-Click)
-          </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-            {/* Khách hàng demo */}
-            <button
-              type="button"
-              disabled={isLoading}
-              onClick={() => handleFastLogin(DEMO_ACCOUNTS.customer)}
-              className="p-3 bg-[#FBF8F5] hover:bg-[#F5ECE5] border border-[#E5E0D8] hover:border-[#D97706]/40 rounded-2xl transition text-left flex items-center gap-2.5 group cursor-pointer"
-            >
-              <div className="w-8 h-8 rounded-full bg-[#EEF7F2] text-[#2D7A4D] flex items-center justify-center shrink-0">
-                <Coffee className="w-4 h-4" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-xs font-bold text-[#1F1612] truncate group-hover:text-[#C8682E] transition">
-                  {DEMO_ACCOUNTS.customer.label}
-                </p>
-                <p className="text-[11px] text-stone-500 truncate">
-                  {DEMO_ACCOUNTS.customer.email}
-                </p>
-              </div>
-            </button>
-
-            {/* Thu ngân / Pha chế demo */}
-            <button
-              type="button"
-              disabled={isLoading}
-              onClick={() => handleFastLogin(DEMO_ACCOUNTS.barista)}
-              className="p-3 bg-[#FBF8F5] hover:bg-[#F5ECE5] border border-[#E5E0D8] hover:border-[#D97706]/40 rounded-2xl transition text-left flex items-center gap-2.5 group cursor-pointer"
-            >
-              <div className="w-8 h-8 rounded-full bg-[#FEF3C7] text-[#D97706] flex items-center justify-center shrink-0">
-                <Sparkles className="w-4 h-4" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-xs font-bold text-[#1F1612] truncate group-hover:text-[#C8682E] transition">
-                  {DEMO_ACCOUNTS.barista.label}
-                </p>
-                <p className="text-[11px] text-stone-500 truncate">
-                  {DEMO_ACCOUNTS.barista.email}
-                </p>
-              </div>
-            </button>
-          </div>
-        </div>
-      )}
+  
 
       {/* ============================================================ */}
       {/* VARIANT 3: FORGOT PASSWORD (Quên mật khẩu)                  */}
