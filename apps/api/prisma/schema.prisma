@@ -141,6 +141,7 @@ model Order {
   userId              String               @map("user_id")
   promotionId         String?              @map("promotion_id")
   status              OrderStatus          @default(PENDING)
+  pickupMethod        String               @default("TAKEAWAY") @map("pickup_method")
   totalAmount         Decimal              @map("total_amount") @db.Decimal(10, 2)
   discountAmount      Decimal              @default(0) @map("discount_amount") @db.Decimal(10, 2)
   pointsRedeemed      Int                  @default(0) @map("points_redeemed")
@@ -163,6 +164,9 @@ model OrderItem {
   productName String    @map("product_name")
   unitPrice   Decimal   @map("unit_price") @db.Decimal(10, 2)
   quantity    Int
+  sugarLevel  String?   @map("sugar_level")
+  iceLevel    String?   @map("ice_level")
+  note        String?
   
   order       Order     @relation(fields: [orderId], references: [orderId], onDelete: Cascade)
   product     Product   @relation(fields: [productId], references: [productId])
