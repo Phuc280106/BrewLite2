@@ -13,6 +13,7 @@ import {
   AlertCircle,
   Check,
   Clock,
+  Coffee,
   Home,
   Loader2,
   ReceiptText,
@@ -259,6 +260,9 @@ export const OrderReceiptView: React.FC<OrderReceiptViewProps> = ({
     }
     if (order.status === 'PENDING') {
       return <Clock className="w-7 h-7" />;
+    }
+    if (order.status === 'PREPARING') {
+      return <Coffee className="w-7 h-7" />;
     }
     return <Check className="w-7 h-7 stroke-[2.75]" />;
   };

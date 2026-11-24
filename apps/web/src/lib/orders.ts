@@ -81,20 +81,22 @@ export function formatOrderDateTime(isoString: string): string {
 }
 
 /**
- * Ánh xạ OrderStatus -> chỉ số bước trên OrderStatusStepper (0..3),
- * hoặc -1 cho trạng thái ngoại lệ CANCELLED / PAYMENT_FAILED.
+ * Ánh xạ OrderStatus -> chỉ số bước trên OrderStatusStepper (0..4),
+ * hiển thị rõ ràng 5 bước: Chờ tiếp nhận -> Đã thanh toán -> Đang pha chế -> Sẵn sàng -> Hoàn tất.
+ * Trả về -1 cho trạng thái ngoại lệ CANCELLED / PAYMENT_FAILED.
  */
 export function getOrderStepIndex(status: OrderStatus): number {
   switch (status) {
     case 'PENDING':
-    case 'PAID':
       return 0;
-    case 'PREPARING':
+    case 'PAID':
       return 1;
-    case 'READY':
+    case 'PREPARING':
       return 2;
-    case 'COMPLETED':
+    case 'READY':
       return 3;
+    case 'COMPLETED':
+      return 4;
     case 'CANCELLED':
     case 'PAYMENT_FAILED':
     default:
@@ -103,10 +105,16 @@ export function getOrderStepIndex(status: OrderStatus): number {
 }
 
 /**
- * FR-12: Khách hàng chỉ có thể hủy đơn khi đơn còn ở trạng thái PENDING.
+ * FR-12 & State Machine: Khách hàng có thể hủy đơn khi đang ở trạng thái
+ * PENDING, PAID (chưa vào quầy pha chế) hoặc PAYMENT_FAILED.
+ * Đơn đã sang PREPARING, READY hoặc COMPLETED không thể hủy.
  */
 export function canCancelOrder(status: OrderStatus): boolean {
-  return status === 'PENDING';
+  return (
+    status === 'PENDING' ||
+    status === 'PAID' ||
+    status === 'PAYMENT_FAILED'
+  );
 }
 
 /**
@@ -201,10 +209,10 @@ export function getStatusDisplayMeta(status: OrderStatus): OrderStatusDisplayMet
         bannerIconBgClassName: 'bg-[#ECF8F1] text-[#147D56]',
         bannerTitleClassName: 'text-[#126844]',
         bannerSubtextClassName: 'text-[#285F49]',
-        bannerTitle: 'Thanh toán thành công!',
+        bannerTitle: 'Đã thanh toán thành công!',
         bannerSubtitle: 'Đơn hàng đang chờ quầy tiếp nhận pha chế.',
-        bannerEstimate: 'Dự kiến có sau 10-12 phút',
-        cancelHint: 'Đơn đã thanh toán, vui lòng liên hệ quầy nếu cần hỗ trợ.',
+        bannerEstimate: 'Dự kiến quầy tiếp nhận trong 1-3 phút',
+        cancelHint: 'Bạn có thể hủy đơn trước khi quầy bắt đầu pha chế.',
         isActiveTracking: true,
       };
     case 'PREPARING':
@@ -212,13 +220,13 @@ export function getStatusDisplayMeta(status: OrderStatus): OrderStatusDisplayMet
         label: 'Đang pha chế',
         shortLabel: 'Đang pha chế',
         badgeClassName: 'bg-[#FEF3C7] text-[#9A5305] border border-[#F5D7A9]',
-        bannerBgClassName: 'bg-[#EAF7EE]',
-        bannerIconBgClassName: 'bg-[#ECF8F1] text-[#147D56]',
-        bannerTitleClassName: 'text-[#126844]',
-        bannerSubtextClassName: 'text-[#285F49]',
-        bannerTitle: 'Thanh toán thành công!',
-        bannerSubtitle: 'Quầy đang chuẩn bị món.',
-        bannerEstimate: 'Dự kiến có sau 8-10 phút',
+        bannerBgClassName: 'bg-[#FFF8EB] border border-[#F5D7A9]',
+        bannerIconBgClassName: 'bg-[#FEF0D4] text-[#D97706]',
+        bannerTitleClassName: 'text-[#9A5305]',
+        bannerSubtextClassName: 'text-[#7C4A15]',
+        bannerTitle: 'Quầy đang chuẩn bị món!',
+        bannerSubtitle: 'Barista đang pha chế đồ uống theo yêu cầu của bạn.',
+        bannerEstimate: 'Dự kiến hoàn thành sau 5-8 phút',
         cancelHint: 'Đơn đang pha chế, không thể hủy.',
         isActiveTracking: true,
       };

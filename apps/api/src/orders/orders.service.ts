@@ -14,6 +14,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrderDto, OrderItemInputDto } from './dto/create-order.dto';
 import { ORDER_PAYMENT_TTL_MS } from './order-expiry.constants';
+import { assertTransition } from './order-state-machine';
 
 interface ValidatedOrderLine {
   productId: string;
@@ -290,7 +291,56 @@ export class OrdersService {
   }
 
   /**
-   * FR-12: Khách hàng hủy đơn hàng khi đơn vẫn đang ở trạng thái PENDING (chờ tiếp nhận)
+   * Helper: Hoàn trả lại tồn kho nguyên liệu theo đúng công thức & size của từng món.
+   * Sắp xếp id nguyên liệu tăng dần để tránh deadlock khi khóa dòng.
+   */
+  private async refundIngredientsForOrder(
+    tx: Prisma.TransactionClient,
+    order: {
+      items: Array<{
+        sizeId: string;
+        quantity: number;
+        product: {
+          recipeItems: Array<{
+            sizeId: string;
+            ingredientId: string;
+            requiredAmount: number;
+          }>;
+        };
+      }>;
+    },
+  ) {
+    const refundByIngredient = new Map<string, number>();
+    for (const item of order.items) {
+      const recipes = item.product.recipeItems.filter(
+        (r) => r.sizeId === item.sizeId,
+      );
+      for (const recipe of recipes) {
+        const current = refundByIngredient.get(recipe.ingredientId) ?? 0;
+        refundByIngredient.set(
+          recipe.ingredientId,
+          current + recipe.requiredAmount * item.quantity,
+        );
+      }
+    }
+
+    const sortedIngredientIds = Array.from(refundByIngredient.keys()).sort();
+    for (const ingredientId of sortedIngredientIds) {
+      const refundAmount = refundByIngredient.get(ingredientId) ?? 0;
+      if (refundAmount > 0) {
+        await tx.ingredient.update({
+          where: { ingredientId },
+          data: {
+            stock: { increment: refundAmount },
+            version: { increment: 1 },
+          },
+        });
+      }
+    }
+  }
+
+  /**
+   * FR-12: Khách hàng hủy đơn hàng (khi đang PENDING / PAID / PAYMENT_FAILED)
    * và hoàn trả lại tồn kho nguyên liệu trong cùng transaction.
    */
   async cancelMyOrder(orderId: string, authUserId: string) {
@@ -322,43 +372,101 @@ export class OrdersService {
         throw new ForbiddenException('Bạn không có quyền hủy đơn hàng này');
       }
 
-      if (order.status !== OrderStatus.PENDING) {
-        throw new BadRequestException(
-          'Đơn hàng đã được tiếp nhận hoặc xử lý, không thể hủy.',
-        );
-      }
+      // Kiểm tra chuyển đổi sang CANCELLED qua State Machine (ném 400 nếu đơn đang PREPARING/READY/COMPLETED)
+      assertTransition(order.status, OrderStatus.CANCELLED);
 
-      const refundByIngredient = new Map<string, number>();
-      for (const item of order.items) {
-        const recipes = item.product.recipeItems.filter(
-          (r) => r.sizeId === item.sizeId,
-        );
-        for (const recipe of recipes) {
-          const current = refundByIngredient.get(recipe.ingredientId) ?? 0;
-          refundByIngredient.set(
-            recipe.ingredientId,
-            current + recipe.requiredAmount * item.quantity,
-          );
-        }
-      }
-
-      const sortedIngredientIds = Array.from(refundByIngredient.keys()).sort();
-      for (const ingredientId of sortedIngredientIds) {
-        const refundAmount = refundByIngredient.get(ingredientId) ?? 0;
-        if (refundAmount > 0) {
-          await tx.ingredient.update({
-            where: { ingredientId },
-            data: {
-              stock: { increment: refundAmount },
-              version: { increment: 1 },
-            },
-          });
-        }
-      }
+      await this.refundIngredientsForOrder(tx, order);
 
       return tx.order.update({
         where: { orderId },
         data: { status: OrderStatus.CANCELLED },
+        include: {
+          items: {
+            include: {
+              size: true,
+              toppings: true,
+              product: {
+                select: {
+                  productId: true,
+                  imageUrl: true,
+                },
+              },
+            },
+          },
+          promotion: true,
+          payments: {
+            orderBy: { createdAt: 'desc' },
+          },
+          loyaltyTransactions: true,
+        },
+      });
+    });
+  }
+
+  /**
+   * Phân hệ 6: Cập nhật trạng thái đơn hàng tuân thủ Order State Machine
+   *   - PAID -> PREPARING (Barista nhận đơn)
+   *   - PREPARING -> READY (Pha xong)
+   *   - READY -> COMPLETED (Đã giao khách)
+   *   - PENDING / PAID / PAYMENT_FAILED -> CANCELLED (Hủy đơn & hoàn kho)
+   * Mọi chuyển trạng thái sai hoặc đi lùi sẽ bị assertTransition ném lỗi 400 Bad Request.
+   */
+  async updateOrderStatus(
+    orderId: string,
+    newStatus: OrderStatus,
+    authUserId: string,
+    role?: string,
+  ) {
+    if (!authUserId) {
+      throw new UnauthorizedException('Vui lòng đăng nhập để cập nhật trạng thái đơn hàng');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const order = await tx.order.findUnique({
+        where: { orderId },
+        include: {
+          items: {
+            include: {
+              product: {
+                include: {
+                  recipeItems: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (!order) {
+        throw new NotFoundException(`Không tìm thấy đơn hàng có mã: ${orderId}`);
+      }
+
+      // 1. Kiểm tra State Machine: ném 400 Bad Request nếu chuyển sai hoặc đi lùi
+      assertTransition(order.status, newStatus);
+
+      // 2. Phân quyền:
+      // Nhân viên (BARISTA / ADMIN) có quyền chuyển tiến trình pha chế/hoàn tất
+      // Khách hàng thông thường chỉ có thể hủy đơn (CANCELLED) trên đơn của mình
+      const isStaff = role === 'BARISTA' || role === 'ADMIN';
+      if (!isStaff) {
+        if (order.userId !== authUserId) {
+          throw new ForbiddenException('Bạn không có quyền cập nhật trạng thái đơn hàng này');
+        }
+        if (newStatus !== OrderStatus.CANCELLED) {
+          throw new ForbiddenException(
+            'Khách hàng chỉ có thể hủy đơn, không có quyền chuyển tiến trình pha chế/hoàn tất.',
+          );
+        }
+      }
+
+      // 3. Nếu chuyển sang CANCELLED thì hoàn kho nguyên liệu
+      if (newStatus === OrderStatus.CANCELLED) {
+        await this.refundIngredientsForOrder(tx, order);
+      }
+
+      return tx.order.update({
+        where: { orderId },
+        data: { status: newStatus },
         include: {
           items: {
             include: {
