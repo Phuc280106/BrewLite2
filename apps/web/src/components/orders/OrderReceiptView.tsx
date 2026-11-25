@@ -386,9 +386,19 @@ export const OrderReceiptView: React.FC<OrderReceiptViewProps> = ({
           className="bg-white border border-[#EAE4DB] rounded-[20px] p-3.5 space-y-2"
         >
           <div className="flex items-baseline justify-between gap-2">
-            <h3 className="font-semibold text-[16px] leading-[20px] text-[#1F1610]">
-              Chi tiết biên nhận
-            </h3>
+            <div className="flex items-center gap-2">
+              <h3 className="font-semibold text-[16px] leading-[20px] text-[#1F1610]">
+                Chi tiết biên nhận
+              </h3>
+              {order.pickupMethod && (
+                <span
+                  data-testid="receipt-pickup-method"
+                  className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-[#F5ECE5] text-[#7C4A15] border border-[#EAE4DB]"
+                >
+                  {order.pickupMethod === 'DINE_IN' ? 'Tại quán' : 'Mang đi'}
+                </span>
+              )}
+            </div>
             <span className="text-xs text-[#6B6B66]">
               {formatOrderDateTime(order.createdAt)}
             </span>
@@ -428,6 +438,15 @@ export const OrderReceiptView: React.FC<OrderReceiptViewProps> = ({
                   <p className="text-[#4B5563] text-[14px]">
                     {optionParts.join(' · ')}
                   </p>
+
+                  {item.note && (
+                    <p
+                      data-testid="receipt-item-note"
+                      className="text-[13px] text-[#8C7A6B] italic leading-[18px]"
+                    >
+                      Ghi chú: {item.note}
+                    </p>
+                  )}
 
                   {toppings.map((topping) => (
                     <div

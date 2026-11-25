@@ -1,9 +1,9 @@
 // ============================================================
 // BrewLite Order History & Receipt API Client (FR-07 & FR-08)
-// Supports real NestJS API + graceful Demo Mode fallback
+// Direct integration with NestJS API endpoints
 // ============================================================
 
-import { getAuthToken, getCurrentUser } from '@/lib/auth';
+import { getAuthToken } from '@/lib/auth';
 import {
   OrderHistoryFilter,
   OrderRecord,
@@ -14,9 +14,6 @@ import {
 const RAW_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
 const CLEAN_URL = RAW_URL.replace(/\/+$/, '');
 const API_BASE = CLEAN_URL.endsWith('/api/v1') ? CLEAN_URL : `${CLEAN_URL}/api/v1`;
-
-const LATEST_ORDER_STORAGE_KEY = 'brewlite_latest_order';
-const DEMO_ORDERS_STORAGE_KEY = 'brewlite_demo_orders_v1';
 
 export class OrderApiError extends Error {
   status: number;
@@ -294,174 +291,7 @@ export function getStatusDisplayMeta(status: OrderStatus): OrderStatusDisplayMet
 }
 
 // ============================================================
-// Demo fallback data (chỉ kích hoạt khi đăng nhập tài khoản Demo offline)
-// ============================================================
-
-function createDefaultDemoOrders(userId: string): OrderRecord[] {
-  const now = Date.now();
-  return [
-    {
-      orderId: 'BL-8921',
-      userId,
-      status: 'PREPARING',
-      totalAmount: 64000,
-      discountAmount: 0,
-      pointsRedeemed: 0,
-      createdAt: new Date(now - 6 * 60 * 1000).toISOString(),
-      items: [
-        {
-          orderItemId: 'demo-item-1',
-          orderId: 'BL-8921',
-          productId: '1',
-          sizeId: 'size-m',
-          productName: 'Trà Sữa Oolong Nướng',
-          unitPrice: 55000,
-          quantity: 1,
-          sugarLevel: '50% đường',
-          iceLevel: '50% đá',
-          size: { sizeId: 'size-m', name: 'M', priceAdjustment: 0 },
-          toppings: [
-            { toppingId: 'top-1', name: 'Trân châu hoàng kim', price: 7000 },
-            { toppingId: 'top-2', name: 'Kem Cheese Macchiato', price: 10000 },
-          ],
-        },
-      ],
-      payments: [
-        {
-          paymentId: 'demo-pay-8921',
-          orderId: 'BL-8921',
-          paymentMethod: 'VNPAY',
-          status: 'SUCCESS',
-          amount: 64000,
-          createdAt: new Date(now - 5 * 60 * 1000).toISOString(),
-        },
-      ],
-      loyaltyTransactions: [
-        {
-          transactionId: 'demo-lt-8921',
-          orderId: 'BL-8921',
-          type: 'EARN',
-          pointsAmount: 6,
-        },
-      ],
-    },
-    {
-      orderId: 'BL-8914',
-      userId,
-      status: 'PENDING',
-      totalAmount: 43000,
-      discountAmount: 0,
-      pointsRedeemed: 0,
-      createdAt: new Date(now - 22 * 60 * 1000).toISOString(),
-      items: [
-        {
-          orderItemId: 'demo-item-2',
-          orderId: 'BL-8914',
-          productId: '2',
-          sizeId: 'size-l',
-          productName: 'Cà Phê Muối Hoàng Gia',
-          unitPrice: 43000,
-          quantity: 1,
-          size: { sizeId: 'size-l', name: 'L', priceAdjustment: 8000 },
-          toppings: [],
-        },
-      ],
-      payments: [],
-      loyaltyTransactions: [],
-    },
-    {
-      orderId: 'BL-8870',
-      userId,
-      status: 'COMPLETED',
-      totalAmount: 78000,
-      discountAmount: 10000,
-      pointsRedeemed: 10,
-      createdAt: new Date(now - 26 * 60 * 60 * 1000).toISOString(),
-      items: [
-        {
-          orderItemId: 'demo-item-3',
-          orderId: 'BL-8870',
-          productId: '3',
-          sizeId: 'size-m',
-          productName: 'Trà Đào Cam Sả Thượng Hạng',
-          unitPrice: 44000,
-          quantity: 2,
-          size: { sizeId: 'size-m', name: 'M', priceAdjustment: 0 },
-          toppings: [{ toppingId: 'top-3', name: 'Đào ngâm miếng', price: 5000 }],
-        },
-      ],
-      payments: [
-        {
-          paymentId: 'demo-pay-8870',
-          orderId: 'BL-8870',
-          paymentMethod: 'VNPAY',
-          status: 'SUCCESS',
-          amount: 78000,
-          createdAt: new Date(now - 26 * 60 * 60 * 1000).toISOString(),
-        },
-      ],
-      loyaltyTransactions: [
-        {
-          transactionId: 'demo-lt-8870',
-          orderId: 'BL-8870',
-          type: 'EARN',
-          pointsAmount: 7,
-        },
-      ],
-    },
-  ];
-}
-
-function loadDemoOrders(userId: string): OrderRecord[] {
-  if (typeof window === 'undefined') return createDefaultDemoOrders(userId);
-  try {
-    const stored = window.localStorage.getItem(DEMO_ORDERS_STORAGE_KEY);
-    let orders: OrderRecord[] = stored
-      ? JSON.parse(stored)
-      : createDefaultDemoOrders(userId);
-
-    // Gộp thêm đơn vừa tạo từ CartPage nếu tồn tại trong localStorage
-    const latestRaw = window.localStorage.getItem(LATEST_ORDER_STORAGE_KEY);
-    if (latestRaw) {
-      const latest = JSON.parse(latestRaw) as OrderRecord;
-      if (latest?.orderId && !orders.some((o) => o.orderId === latest.orderId)) {
-        orders = [latest, ...orders];
-      }
-    }
-
-    if (!stored) {
-      window.localStorage.setItem(DEMO_ORDERS_STORAGE_KEY, JSON.stringify(orders));
-    }
-
-    return orders.sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-    );
-  } catch {
-    return createDefaultDemoOrders(userId);
-  }
-}
-
-function saveDemoOrders(orders: OrderRecord[]): void {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.setItem(DEMO_ORDERS_STORAGE_KEY, JSON.stringify(orders));
-  } catch {
-    // Bỏ qua nếu bộ nhớ cục bộ bị giới hạn
-  }
-}
-
-export function isDemoSessionToken(token: string | null): boolean {
-  if (!token) return false;
-  return (
-    token.startsWith('demo-jwt-') ||
-    token.startsWith('demo_token_') ||
-    token.startsWith('local-session-token-') ||
-    token.startsWith('local-reg-token-')
-  );
-}
-
-// ============================================================
-// API Calls
+// API Calls (FR-07 & FR-08)
 // ============================================================
 
 /**
@@ -469,17 +299,12 @@ export function isDemoSessionToken(token: string | null): boolean {
  */
 export async function fetchMyOrders(): Promise<OrderRecord[]> {
   const token = getAuthToken();
-  const user = getCurrentUser();
 
   if (!token) {
     throw new OrderApiError(
       'Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại',
       401,
     );
-  }
-
-  if (isDemoSessionToken(token)) {
-    return loadDemoOrders(user?.userId || 'demo-customer-001');
   }
 
   let response: Response;
@@ -527,22 +352,12 @@ export async function fetchMyOrders(): Promise<OrderRecord[]> {
  */
 export async function fetchOrderById(orderId: string): Promise<OrderRecord> {
   const token = getAuthToken();
-  const user = getCurrentUser();
 
   if (!token) {
     throw new OrderApiError(
       'Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại',
       401,
     );
-  }
-
-  if (isDemoSessionToken(token)) {
-    const demoOrders = loadDemoOrders(user?.userId || 'demo-customer-001');
-    const found = demoOrders.find((o) => o.orderId === orderId);
-    if (!found) {
-      throw new OrderApiError('Không tìm thấy thông tin đơn hàng này', 404);
-    }
-    return found;
   }
 
   let response: Response;
@@ -591,31 +406,16 @@ export async function fetchOrderById(orderId: string): Promise<OrderRecord> {
 }
 
 /**
- * FR-12: Gọi API PATCH /api/v1/orders/:id/cancel khi đơn hàng còn ở trạng thái PENDING.
+ * FR-12: Gọi API PATCH /api/v1/orders/:id/cancel khi đơn hàng còn ở trạng thái PENDING / PAID / PAYMENT_FAILED.
  */
 export async function cancelOrderById(orderId: string): Promise<OrderRecord> {
   const token = getAuthToken();
-  const user = getCurrentUser();
 
   if (!token) {
     throw new OrderApiError(
       'Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại',
       401,
     );
-  }
-
-  if (isDemoSessionToken(token)) {
-    const demoOrders = loadDemoOrders(user?.userId || 'demo-customer-001');
-    const target = demoOrders.find((o) => o.orderId === orderId);
-    if (!target) {
-      throw new OrderApiError('Không tìm thấy thông tin đơn hàng này', 404);
-    }
-    if (!canCancelOrder(target.status)) {
-      throw new OrderApiError('Đơn đang pha chế, không thể hủy.', 400);
-    }
-    const updated: OrderRecord = { ...target, status: 'CANCELLED' };
-    saveDemoOrders(demoOrders.map((o) => (o.orderId === orderId ? updated : o)));
-    return updated;
   }
 
   let response: Response;
