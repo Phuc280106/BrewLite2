@@ -127,6 +127,17 @@ export function calculateCartTotals(params: {
   };
 }
 
+export function isItemAvailable(item: {
+  isAvailable?: boolean;
+  product?: { isAvailable?: boolean };
+  size?: { isAvailable?: boolean };
+}): boolean {
+  if (item.isAvailable === false) return false;
+  if (item.product && item.product.isAvailable === false) return false;
+  if (item.size && item.size.isAvailable === false) return false;
+  return true;
+}
+
 export function formatVND(amount: number): string {
   return `${Math.round(toNumeric(amount)).toLocaleString('vi-VN')}đ`;
 }

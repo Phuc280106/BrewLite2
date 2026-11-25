@@ -5,9 +5,10 @@ import { OrdersModule } from './orders/orders.module';
 import { PaymentsModule } from './payments/payments.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { ProductsModule } from './products/products.module';
+import { OptionsModule } from './options/options.module';
 import { HealthModule } from './health/health.module';
 
 @Module({
-  imports: [PrismaModule, ProductsModule, AuthModule, OrdersModule, PaymentsModule, LoyaltyModule, HealthModule],
+  imports: [PrismaModule, ProductsModule, OptionsModule, AuthModule, OrdersModule, PaymentsModule, LoyaltyModule, HealthModule],
 })
 export class AppModule {}

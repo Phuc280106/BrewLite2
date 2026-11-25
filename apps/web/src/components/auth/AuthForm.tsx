@@ -52,7 +52,7 @@ function validateEmail(emailInput: string): EmailValidationResult {
 
   const parts = trimmed.split('@');
   if (parts.length !== 2) {
-    return { isValid: false, errorMessage: 'Email chỉ được chứa đúng 1 ký tự @' };
+    return { isValid: false, errorMessage: 'Email chưa nhập đúng định dạng' };
   }
 
   const [localPart, domainPart] = parts;

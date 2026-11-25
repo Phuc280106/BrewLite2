@@ -31,30 +31,66 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const [selectedIce, setSelectedIce] = useState<string>('50% đá');
   const [selectedToppings, setSelectedToppings] = useState<Topping[]>([]);
   const [note, setNote] = useState<string>('');
-  const [quantity, setQuantity] = useState<number>(1);
+  const [quantityInput, setQuantityInput] = useState('1');
+  const quantity = Math.max(1, Number.parseInt(quantityInput, 10) || 1);
   const [imgError, setImgError] = useState(false);
 
-  // Nạp chi tiết size và topping đầy đủ từ API nếu danh sách menu chưa đính kèm
+  // Nạp chi tiết size và topping đầy đủ từ API nếu danh sách menu chưa đính kèm, đồng thời nạp trạng thái options/tồn kho
   useEffect(() => {
     setDetailProduct(product);
     setSelectedSize(product.sizes?.[0]);
     setSelectedToppings([]);
 
-    if (product.sizes && product.sizes.length > 0 && product.toppings) {
-      return;
-    }
-
     let cancelled = false;
-    fetch(`${API_BASE}/products/${product.productId}`, { cache: 'no-store' })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data: Product | null) => {
-        if (cancelled || !data) return;
-        setDetailProduct(data);
-        setSelectedSize((prev) => prev ?? data.sizes?.[0]);
-      })
-      .catch(() => {
-        // Giữ dữ liệu hiện tại nếu backend không khả dụng
-      });
+
+    // Gọi song song options theo product và chi tiết product
+    Promise.all([
+      fetch(`${API_BASE}/products/${product.productId}`, { cache: 'no-store' })
+        .then((res) => (res.ok ? res.json() : null))
+        .catch(() => null),
+      fetch(`${API_BASE}/options/products/${product.productId}`, { cache: 'no-store' })
+        .then((res) => (res.ok ? res.json() : null))
+        .catch(() => null),
+    ]).then(([prodData, optData]) => {
+      if (cancelled) return;
+      if (prodData || optData) {
+        setDetailProduct((prev) => {
+          const base = prodData || prev;
+          if (optData) {
+            const mergedSizes = (base.sizes || []).map((s: Size) => {
+              const optSize = optData.sizes?.find((os: any) => os.sizeId === s.sizeId);
+              return {
+                ...s,
+                isAvailable: optSize ? optSize.isAvailable : s.isAvailable,
+                maxServings: optSize ? optSize.maxServings : s.maxServings,
+              };
+            });
+            return {
+              ...base,
+              isAvailable: optData.isAvailable,
+              maxServings: optData.maxServings,
+              sizes: mergedSizes,
+            };
+          }
+          return base;
+        });
+
+        if (optData?.sizes?.length) {
+          // Tự động ưu tiên chọn size còn hàng đầu tiên
+          const availableSize = optData.sizes.find((s: any) => s.isAvailable);
+          if (availableSize) {
+            setSelectedSize((prev) => {
+              if (prev && !optData.sizes.find((s: any) => s.sizeId === prev.sizeId)?.isAvailable) {
+                return (prodData?.sizes || product.sizes)?.find(
+                  (s: Size) => s.sizeId === availableSize.sizeId,
+                );
+              }
+              return prev;
+            });
+          }
+        }
+      }
+    });
 
     return () => {
       cancelled = true;
@@ -125,9 +161,15 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               ) : (
                 <DrinkGraphicFallback name={product.name} />
               )}
-              <span className="absolute top-2.5 left-2.5 bg-[#EDFAF2] text-[#147D56] text-xs px-2.5 py-0.5 rounded-full font-bold shadow-xs">
-                Còn hàng
-              </span>
+              {detailProduct.isAvailable !== false ? (
+                <span className="absolute top-2.5 left-2.5 bg-[#EDFAF2] text-[#147D56] text-xs px-2.5 py-0.5 rounded-full font-bold shadow-xs">
+                  Còn hàng
+                </span>
+              ) : (
+                <span className="absolute top-2.5 left-2.5 bg-red-100 text-red-700 text-xs px-2.5 py-0.5 rounded-full font-bold shadow-xs">
+                  Hết hàng
+                </span>
+              )}
             </div>
 
             <h3 className="font-bold text-stone-900 text-lg sm:text-xl leading-snug">
@@ -163,6 +205,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   {detailProduct.sizes.map((size) => {
                     const isSelected = selectedSize?.sizeId === size.sizeId;
                     const sizeAdj = toNumeric(size.priceAdjustment);
+                    const sizeAvailable = size.isAvailable !== false;
                     return (
                       <button
                         key={size.sizeId}
@@ -171,10 +214,19 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                         className={`py-2.5 px-3 rounded-xl border text-xs font-medium flex items-center justify-between transition ${
                           isSelected
                             ? 'border-[#3D2615] bg-[#3D2615] text-white shadow-xs'
-                            : 'border-stone-200 text-stone-700 hover:border-stone-400 bg-white'
+                            : sizeAvailable
+                            ? 'border-stone-200 text-stone-700 hover:border-stone-400 bg-white'
+                            : 'border-stone-200 bg-stone-100 text-stone-400'
                         }`}
                       >
-                        <span className="font-semibold">{size.name}</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-semibold">{size.name}</span>
+                          {!sizeAvailable && (
+                            <span className="text-[10px] px-1 py-0.2 bg-red-100 text-red-600 rounded">
+                              Hết
+                            </span>
+                          )}
+                        </div>
                         <span className={isSelected ? 'text-amber-100' : 'text-stone-500'}>
                           {sizeAdj > 0
                             ? `+${formatVND(sizeAdj)}`
@@ -313,18 +365,26 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             <div className="flex items-center justify-between bg-[#FBF9F5] border border-[#EDE7DF] rounded-xl px-2 py-1.5 w-28 shrink-0">
               <button
                 type="button"
-                onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                onClick={() => setQuantityInput(String(Math.max(1, quantity - 1)))}
                 className="w-7 h-7 rounded-lg flex items-center justify-center text-stone-600 hover:bg-stone-200 transition disabled:opacity-30"
                 disabled={quantity <= 1}
               >
                 <Minus className="w-4 h-4" />
               </button>
-              <span className="font-bold text-stone-900 text-sm">
-                {quantity}
-              </span>
+              <input
+                type="text"
+                min={1}
+                step={1}
+                inputMode="numeric"
+                aria-label="Số lượng"
+                value={quantityInput}
+                onChange={(e) => setQuantityInput(e.target.value)}
+                onBlur={() => setQuantityInput(String(quantity))}
+                className="w-10 bg-transparent text-center font-bold text-stone-900 text-sm outline-none"
+              />
               <button
                 type="button"
-                onClick={() => setQuantity((q) => q + 1)}
+                onClick={() => setQuantityInput(String(quantity + 1))}
                 className="w-7 h-7 rounded-lg flex items-center justify-center text-stone-600 hover:bg-stone-200 transition"
               >
                 <Plus className="w-4 h-4" />
@@ -332,15 +392,34 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             </div>
 
             {/* Nút Thêm vào giỏ hàng */}
-            <button
-              type="button"
-              onClick={handleAdd}
-              className="flex-1 py-3 bg-[#D97706] hover:bg-[#C26804] text-white font-bold rounded-xl text-sm transition shadow-md flex items-center justify-center gap-2"
-            >
-              <span>Thêm vào giỏ hàng</span>
-              <span>•</span>
-              <span>{formatVND(totalPrice)}</span>
-            </button>
+            {(() => {
+              const isOverallAvailable =
+                detailProduct.isAvailable !== false &&
+                (selectedSize ? selectedSize.isAvailable !== false : true);
+
+              return (
+                <button
+                  type="button"
+                  onClick={handleAdd}
+                  disabled={!isOverallAvailable}
+                  className={`flex-1 py-3 font-bold rounded-xl text-sm transition shadow-md flex items-center justify-center gap-2 ${
+                    isOverallAvailable
+                      ? 'bg-[#D97706] hover:bg-[#C26804] text-white cursor-pointer'
+                      : 'bg-stone-300 text-stone-500 cursor-not-allowed shadow-none'
+                  }`}
+                >
+                  {isOverallAvailable ? (
+                    <>
+                      <span>Thêm vào giỏ hàng</span>
+                      <span>•</span>
+                      <span>{formatVND(totalPrice)}</span>
+                    </>
+                  ) : (
+                    <span>Hết hàng</span>
+                  )}
+                </button>
+              );
+            })()}
           </div>
         </div>
       </div>
