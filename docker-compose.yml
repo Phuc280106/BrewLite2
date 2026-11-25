@@ -38,6 +38,10 @@ services:
       JWT_SECRET: ${JWT_SECRET:-brewlite_super_secret_jwt_key_2026}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
+      VNP_TMN_CODE: ${VNP_TMN_CODE:-}
+      VNP_HASH_SECRET: ${VNP_HASH_SECRET:-}
+      VNP_URL: ${VNP_URL:-https://sandbox.vnpayment.vn/paymentv2/vpcpay.html}
+      VNP_RETURN_URL: ${VNP_RETURN_URL:-http://localhost:3000/payment/vnpay-return}
     depends_on:
       postgres:
         condition: service_healthy
