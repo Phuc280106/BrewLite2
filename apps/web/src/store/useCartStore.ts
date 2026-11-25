@@ -14,6 +14,7 @@ import {
   findPromotionByCode,
   formatVND,
   LOYALTY_REDEEM_RATE,
+  normalizePromotionRule,
   toNumeric,
 } from '@/lib/cartPricing';
 
@@ -64,16 +65,18 @@ function createSafeLocalStorage(): StateStorage {
 
 export interface CartState {
   items: CartItem[];
+  availablePromotions: PromotionRule[];
   appliedPromotion: PromotionRule | null;
   pointsRedeemed: number;
   hasHydrated: boolean;
 
   setHasHydrated: (value: boolean) => void;
+  setAvailablePromotions: (promotions: PromotionRule[]) => void;
   addItem: (input: AddToCartInput) => CartItem;
   updateQuantity: (itemId: string, quantity: number) => void;
   removeItem: (itemId: string) => void;
   clearCart: () => void;
-  applyPromotion: (code: string) => ActionResult;
+  applyPromotion: (code: string, promotions?: PromotionRule[]) => ActionResult;
   removePromotion: () => void;
   applyLoyaltyPoints: (requestedPoints: number, userPoints: number) => ActionResult;
   clearLoyaltyPoints: () => void;
@@ -118,11 +121,32 @@ export const useCartStore = create<CartState>()(
   persist(
     (set, get) => ({
       items: [],
+      availablePromotions: [],
       appliedPromotion: null,
       pointsRedeemed: 0,
       hasHydrated: false,
 
       setHasHydrated: (value: boolean) => set({ hasHydrated: value }),
+
+      setAvailablePromotions: (promotions: PromotionRule[]) => {
+        const normalized = promotions
+          .map((promo) => normalizePromotionRule(promo))
+          .filter((promo): promo is PromotionRule => promo !== null);
+        const state = get();
+        const refreshedApplied = state.appliedPromotion
+          ? (findPromotionByCode(state.appliedPromotion.promotionCode, normalized) ?? null)
+          : null;
+        const reconciled = reconcileDiscounts(
+          state.items,
+          refreshedApplied,
+          state.pointsRedeemed,
+        );
+
+        set({
+          availablePromotions: normalized,
+          ...reconciled,
+        });
+      },
 
       addItem: (input: AddToCartInput) => {
         const safeQuantity = Math.max(1, Math.floor(toNumeric(input.quantity) || 1));
@@ -248,7 +272,7 @@ export const useCartStore = create<CartState>()(
         });
       },
 
-      applyPromotion: (code: string): ActionResult => {
+      applyPromotion: (code: string, promotions?: PromotionRule[]): ActionResult => {
         const trimmed = code.trim();
         if (!trimmed) {
           return { ok: false, message: 'Vui lòng nhập mã khuyến mãi.' };
@@ -259,7 +283,15 @@ export const useCartStore = create<CartState>()(
           return { ok: false, message: 'Giỏ hàng đang trống, chưa thể áp dụng mã.' };
         }
 
-        const promo = findPromotionByCode(trimmed);
+        const catalog = promotions ?? state.availablePromotions;
+        if (catalog.length === 0) {
+          return {
+            ok: false,
+            message: 'Chưa có mã khuyến mãi khả dụng từ hệ thống. Vui lòng thử lại.',
+          };
+        }
+
+        const promo = findPromotionByCode(trimmed, catalog);
         if (!promo) {
           return {
             ok: false,
