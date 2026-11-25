@@ -14,36 +14,6 @@ const RAW_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1
 const CLEAN_URL = RAW_URL.replace(/\/+$/, '');
 const API_BASE = CLEAN_URL.endsWith('/api/v1') ? CLEAN_URL : `${CLEAN_URL}/api/v1`;
 
-// Demo accounts for instant one-click login & offline presentation
-export const DEMO_ACCOUNTS = {
-  customer: {
-    label: 'Khách hàng demo',
-    roleLabel: 'Khách hàng',
-    email: 'customer@gmail.com',
-    password: '123456',
-    user: {
-      userId: 'demo-customer-001',
-      name: 'Nguyễn Văn An',
-      email: 'customer@gmail.com',
-      role: 'CUSTOMER',
-      points: 120,
-    } as AuthUser,
-  },
-  barista: {
-    label: 'Thu ngân / Pha chế demo',
-    roleLabel: 'Pha chế',
-    email: 'barista@gmail.com',
-    password: '123456',
-    user: {
-      userId: 'demo-barista-002',
-      name: 'Trần Thị Mai',
-      email: 'barista@gmail.com',
-      role: 'BARISTA',
-      points: 350,
-    } as AuthUser,
-  },
-};
-
 /**
  * Lấy token xác thực từ localStorage
  */
@@ -87,6 +57,44 @@ function saveSession(token: string, user: AuthUser): void {
     window.dispatchEvent(new CustomEvent(AUTH_EVENT, { detail: user }));
   } catch (err) {
     console.error('Không thể lưu phiên đăng nhập:', err);
+  }
+}
+
+/**
+ * Cập nhật một phần thông tin người dùng đang đăng nhập (ví dụ số điểm thưởng)
+ * và báo cho các màn hình đang lắng nghe (menu, giỏ hàng...) cập nhật theo.
+ */
+export function updateCurrentUser(patch: Partial<AuthUser>): void {
+  if (typeof window === 'undefined') return;
+  const current = getCurrentUser();
+  if (!current) return;
+  try {
+    const next: AuthUser = { ...current, ...patch };
+    localStorage.setItem(USER_KEY, JSON.stringify(next));
+    window.dispatchEvent(new CustomEvent(AUTH_EVENT, { detail: next }));
+  } catch (err) {
+    console.error('Không thể cập nhật thông tin người dùng:', err);
+  }
+}
+
+/**
+ * Đồng bộ số dư điểm thưởng thật từ server (GET /loyalty/me).
+ * Lỗi mạng / token demo không hợp lệ thì bỏ qua, giữ nguyên số điểm đang hiển thị.
+ */
+export async function syncLoyaltyPoints(): Promise<void> {
+  const token = getAuthToken();
+  if (!token) return;
+  try {
+    const res = await fetch(`${API_BASE}/loyalty/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (typeof data.points === 'number') {
+      updateCurrentUser({ points: data.points });
+    }
+  } catch {
+    // Bỏ qua
   }
 }
 
@@ -159,20 +167,17 @@ function isNetworkError(err: unknown): boolean {
   return false;
 }
 
-/**
- * Đăng nhập tài khoản (kết nối API backend hoặc tự động fallback sang Demo khi offline)
- */
+
+//Đăng nhập tài khoản qua API backend
+
 export async function login(credentials: LoginCredentials): Promise<AuthResponse> {
   const emailClean = credentials.email.trim().toLowerCase();
   const password = credentials.password;
 
-  let networkFailed = false;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 3000);
 
-  // 1. Thử gọi Backend API
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3000);
-
     const response = await fetch(`${API_BASE}/auth/login`, {
       method: 'POST',
       headers: {
@@ -181,94 +186,51 @@ export async function login(credentials: LoginCredentials): Promise<AuthResponse
       body: JSON.stringify({ email: emailClean, password }),
       signal: controller.signal,
     });
-    clearTimeout(timeoutId);
 
     if (response.ok) {
       const data = await response.json();
-      const token = data.accessToken || data.token || 'jwt-backend-token';
+      const token = data.accessToken || data.token;
+      if (!token) {
+        throw new Error('Không nhận được token xác thực từ máy chủ.');
+      }
+
       const user: AuthUser = {
         userId: data.user?.userId || data.user?.id || 'user-' + Date.now(),
         name: data.user?.name || emailClean.split('@')[0],
         email: data.user?.email || emailClean,
         role: data.user?.role || 'CUSTOMER',
-        points: data.user?.points ?? 120,
+        points: data.user?.points ?? 0,
       };
 
       saveSession(token, user);
+      void syncLoyaltyPoints();
       return { accessToken: token, user };
     }
 
-    // Backend phản hồi lỗi HTTP (401 Unauthorized, 400 Bad Request, v.v.)
-    // KHÔNG nuốt lỗi mà ném trực tiếp ra UI
     const errData = await response.json().catch(() => ({}));
     const message =
       errData.message ||
       (response.status === 401 ? 'Thông tin đăng nhập không chính xác' : 'Đăng nhập không thành công');
     throw new Error(Array.isArray(message) ? message.join(', ') : message);
   } catch (err: unknown) {
-    if (!isNetworkError(err)) {
-      // Lỗi logic từ backend (ví dụ 401 sai mật khẩu) -> ném lỗi trực tiếp
-      throw err;
+    if (isNetworkError(err)) {
+      throw new Error('Không thể kết nối tới máy chủ. Vui lòng thử lại sau.');
     }
-    // Lỗi mạng thực sự -> kích hoạt fallback offline
-    networkFailed = true;
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
   }
-
-  // 2. Fallback Demo Accounts (CHỈ KHI backend offline / không thể kết nối mạng)
-  if (networkFailed) {
-    if (emailClean === DEMO_ACCOUNTS.customer.email && password === DEMO_ACCOUNTS.customer.password) {
-      const res: AuthResponse = {
-        accessToken: 'demo-jwt-customer-token',
-        user: DEMO_ACCOUNTS.customer.user,
-      };
-      saveSession(res.accessToken, res.user);
-      return res;
-    }
-
-    if (emailClean === DEMO_ACCOUNTS.barista.email && password === DEMO_ACCOUNTS.barista.password) {
-      const res: AuthResponse = {
-        accessToken: 'demo-jwt-barista-token',
-        user: DEMO_ACCOUNTS.barista.user,
-      };
-      saveSession(res.accessToken, res.user);
-      return res;
-    }
-
-    // Nếu người dùng nhập thông tin bất kỳ khi Backend offline
-    if (password.length >= 6) {
-      const fallbackUser: AuthUser = {
-        userId: 'usr-local-' + Date.now().toString(36),
-        name: emailClean.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase()),
-        email: emailClean,
-        role: 'CUSTOMER',
-        points: 50,
-      };
-      const res: AuthResponse = {
-        accessToken: 'local-session-token-' + Date.now(),
-        user: fallbackUser,
-      };
-      saveSession(res.accessToken, res.user);
-      return res;
-    }
-  }
-
-  throw new Error('Mật khẩu phải chứa ít nhất 6 ký tự.');
 }
 
-/**
- * Đăng ký tài khoản mới (kết nối API backend hoặc tự động fallback khi offline)
- */
+// Đăng ký tài khoản mới qua API backend
 export async function register(data: RegisterData): Promise<AuthResponse> {
   const emailClean = data.email.trim().toLowerCase();
   const nameClean = data.name.trim();
 
-  let networkFailed = false;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 3000);
 
-  // 1. Thử gọi Backend API
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3000);
-
     const response = await fetch(`${API_BASE}/auth/register`, {
       method: 'POST',
       headers: {
@@ -281,18 +243,12 @@ export async function register(data: RegisterData): Promise<AuthResponse> {
       }),
       signal: controller.signal,
     });
-    clearTimeout(timeoutId);
 
     if (response.ok) {
       const respData = await response.json();
-      let token = respData.accessToken || respData.token;
+      const token = respData.accessToken || respData.token;
       if (!token) {
-        try {
-          const loginRes = await login({ email: emailClean, password: data.password });
-          return loginRes;
-        } catch {
-          token = 'jwt-session-' + Date.now();
-        }
+        return await login({ email: emailClean, password: data.password });
       }
 
       const user: AuthUser = {
@@ -300,47 +256,24 @@ export async function register(data: RegisterData): Promise<AuthResponse> {
         name: respData.user?.name || nameClean,
         email: respData.user?.email || emailClean,
         role: respData.user?.role || 'CUSTOMER',
-        points: 0,
+        points: 10,
       };
 
       saveSession(token, user);
       return { accessToken: token, user };
     }
 
-    // Backend phản hồi lỗi (ví dụ 409 Conflict "Email này đã được sử dụng")
-    // KHÔNG nuốt lỗi mà ném trực tiếp ra UI
     const errData = await response.json().catch(() => ({}));
     const message =
       errData.message ||
       (response.status === 409 ? 'Email này đã được sử dụng' : 'Đăng ký tài khoản không thành công');
     throw new Error(Array.isArray(message) ? message.join(', ') : message);
   } catch (err: unknown) {
-    if (!isNetworkError(err)) {
-      // Lỗi logic từ backend (ví dụ 409 trùng email) -> ném lỗi trực tiếp
-      throw err;
+    if (isNetworkError(err)) {
+      throw new Error('Không thể kết nối tới máy chủ. Vui lòng thử lại sau.');
     }
-    // Lỗi mạng thực sự -> kích hoạt fallback offline
-    networkFailed = true;
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
   }
-
-  // 2. Fallback giả lập đăng ký thành công cục bộ khi offline
-  if (networkFailed) {
-    const newUser: AuthUser = {
-      userId: 'usr-new-' + Date.now().toString(36),
-      name: nameClean,
-      email: emailClean,
-      role: 'CUSTOMER',
-      points: 10, // Thưởng 10 điểm chào mừng
-    };
-
-    const authRes: AuthResponse = {
-      accessToken: 'local-reg-token-' + Date.now(),
-      user: newUser,
-    };
-
-    saveSession(authRes.accessToken, authRes.user);
-    return authRes;
-  }
-
-  throw new Error('Đăng ký không thành công.');
 }

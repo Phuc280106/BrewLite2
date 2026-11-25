@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
   UnauthorizedException,
@@ -12,6 +13,8 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrderDto, OrderItemInputDto } from './dto/create-order.dto';
+import { ORDER_PAYMENT_TTL_MS } from './order-expiry.constants';
+import { assertTransition } from './order-state-machine';
 
 interface ValidatedOrderLine {
   productId: string;
@@ -20,6 +23,9 @@ interface ValidatedOrderLine {
   unitPrice: number;
   quantity: number;
   toppingIds: string[];
+  sugarLevel?: string;
+  iceLevel?: string;
+  note?: string;
 }
 
 interface LockedIngredientRow {
@@ -69,6 +75,7 @@ export class OrdersService {
           userId,
           promotionId,
           status: OrderStatus.PENDING,
+          pickupMethod: dto.pickupMethod ?? 'TAKEAWAY',
           totalAmount,
           discountAmount: totalDiscount,
           pointsRedeemed,
@@ -79,6 +86,9 @@ export class OrdersService {
               productName: line.productName,
               unitPrice: line.unitPrice,
               quantity: line.quantity,
+              sugarLevel: line.sugarLevel,
+              iceLevel: line.iceLevel,
+              note: line.note,
               toppings:
                 line.toppingIds.length > 0
                   ? { connect: line.toppingIds.map((toppingId) => ({ toppingId })) }
@@ -117,6 +127,76 @@ export class OrdersService {
     });
   }
 
+  /**
+   * Sequence "Hủy đơn & hoàn kho khi quá 15 phút" (huyDonQuaHan):
+   * tìm đơn PENDING quá hạn, mỗi đơn xử lý trong 1 transaction riêng:
+   * chuyển CANCELLED + hoàn kho nguyên liệu. Trả về số đơn đã hủy.
+   */
+  async cancelExpiredOrders(now: Date = new Date()): Promise<number> {
+    const threshold = new Date(now.getTime() - ORDER_PAYMENT_TTL_MS);
+
+    // timDonChoThanhToanQuaHan
+    const expiredOrders = await this.prisma.order.findMany({
+      where: { status: OrderStatus.PENDING, createdAt: { lt: threshold } },
+      select: { orderId: true },
+    });
+
+    let cancelled = 0;
+    for (const { orderId } of expiredOrders) {
+      try {
+        if (await this.cancelAndRestoreStock(orderId)) cancelled += 1;
+      } catch (error) {
+        // Một đơn lỗi không được chặn các đơn còn lại; lượt quét sau sẽ thử lại
+        console.error(`[OrdersService] Không thể hủy đơn quá hạn ${orderId}:`, error);
+      }
+    }
+    return cancelled;
+  }
+
+  private async cancelAndRestoreStock(orderId: string): Promise<boolean> {
+    // batDauGiaoDich ... xacNhanGiaoDich (BEGIN ... COMMIT)
+    return this.prisma.$transaction(async (tx) => {
+      // Chốt trạng thái trước: nếu khách vừa thanh toán xong (đã PREPARING) thì bỏ qua đơn này
+      const updated = await tx.order.updateMany({
+        where: { orderId, status: OrderStatus.PENDING },
+        data: { status: OrderStatus.CANCELLED },
+      });
+      if (updated.count !== 1) return false;
+
+      const order = await tx.order.findUniqueOrThrow({
+        where: { orderId },
+        include: { items: true },
+      });
+
+      // hoanKhoNguyenLieu(donHang): cộng lại đúng lượng đã trừ ở createOrder
+      const restoreByIngredient = new Map<string, number>();
+      for (const item of order.items) {
+        const recipes = await tx.recipeItems.findMany({
+          where: { productId: item.productId, sizeId: item.sizeId },
+        });
+        for (const recipe of recipes) {
+          restoreByIngredient.set(
+            recipe.ingredientId,
+            (restoreByIngredient.get(recipe.ingredientId) ?? 0) +
+              recipe.requiredAmount * item.quantity,
+          );
+        }
+      }
+
+      // Sắp xếp theo id để thứ tự khóa dòng giống createOrder, tránh deadlock
+      for (const ingredientId of Array.from(restoreByIngredient.keys()).sort()) {
+        await tx.ingredient.update({
+          where: { ingredientId },
+          data: {
+            stock: { increment: restoreByIngredient.get(ingredientId) ?? 0 },
+            version: { increment: 1 },
+          },
+        });
+      }
+      return true;
+    });
+  }
+
   async findOne(orderId: string) {
     const order = await this.prisma.order.findUnique({
       where: { orderId },
@@ -137,6 +217,284 @@ export class OrdersService {
     }
 
     return order;
+  }
+
+  /**
+   * FR-08: Lấy danh sách lịch sử đơn hàng cá nhân của người dùng đang đăng nhập
+   * Sắp xếp theo thời gian tạo mới nhất lên đầu (createdAt DESC).
+   */
+  async findMyOrders(authUserId: string) {
+    if (!authUserId) {
+      throw new UnauthorizedException('Vui lòng đăng nhập để xem lịch sử đơn hàng');
+    }
+
+    return this.prisma.order.findMany({
+      where: { userId: authUserId },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        items: {
+          include: {
+            size: true,
+            toppings: true,
+            product: {
+              select: {
+                productId: true,
+                imageUrl: true,
+              },
+            },
+          },
+        },
+        promotion: true,
+        payments: {
+          orderBy: { createdAt: 'desc' },
+        },
+        loyaltyTransactions: true,
+      },
+    });
+  }
+
+  /**
+   * FR-07: Lấy chi tiết biên nhận & trạng thái đơn hàng có kiểm tra quyền sở hữu.
+   * Chủ đơn hàng hoặc nhân viên quầy (BARISTA / ADMIN) đều có quyền tra cứu.
+   */
+  async findOneForUser(orderId: string, authUserId: string, role?: string) {
+    if (!authUserId) {
+      throw new UnauthorizedException('Vui lòng đăng nhập để xem biên nhận đơn hàng');
+    }
+
+    const order = await this.prisma.order.findUnique({
+      where: { orderId },
+      include: {
+        items: {
+          include: {
+            size: true,
+            toppings: true,
+            product: {
+              select: {
+                productId: true,
+                imageUrl: true,
+              },
+            },
+          },
+        },
+        promotion: true,
+        payments: {
+          orderBy: { createdAt: 'desc' },
+        },
+        loyaltyTransactions: true,
+      },
+    });
+
+    if (!order) {
+      throw new NotFoundException(`Không tìm thấy đơn hàng có mã: ${orderId}`);
+    }
+
+    const isStaff = role === 'BARISTA' || role === 'ADMIN';
+    if (order.userId !== authUserId && !isStaff) {
+      throw new ForbiddenException('Bạn không có quyền xem thông tin đơn hàng này');
+    }
+
+    return order;
+  }
+
+  /**
+   * Helper: Hoàn trả lại tồn kho nguyên liệu theo đúng công thức & size của từng món.
+   * Sắp xếp id nguyên liệu tăng dần để tránh deadlock khi khóa dòng.
+   */
+  private async refundIngredientsForOrder(
+    tx: Prisma.TransactionClient,
+    order: {
+      items: Array<{
+        sizeId: string;
+        quantity: number;
+        product: {
+          recipeItems: Array<{
+            sizeId: string;
+            ingredientId: string;
+            requiredAmount: number;
+          }>;
+        };
+      }>;
+    },
+  ) {
+    const refundByIngredient = new Map<string, number>();
+    for (const item of order.items) {
+      const recipes = item.product.recipeItems.filter(
+        (r) => r.sizeId === item.sizeId,
+      );
+      for (const recipe of recipes) {
+        const current = refundByIngredient.get(recipe.ingredientId) ?? 0;
+        refundByIngredient.set(
+          recipe.ingredientId,
+          current + recipe.requiredAmount * item.quantity,
+        );
+      }
+    }
+
+    const sortedIngredientIds = Array.from(refundByIngredient.keys()).sort();
+    for (const ingredientId of sortedIngredientIds) {
+      const refundAmount = refundByIngredient.get(ingredientId) ?? 0;
+      if (refundAmount > 0) {
+        await tx.ingredient.update({
+          where: { ingredientId },
+          data: {
+            stock: { increment: refundAmount },
+            version: { increment: 1 },
+          },
+        });
+      }
+    }
+  }
+
+  /**
+   * FR-12: Khách hàng hủy đơn hàng (khi đang PENDING / PAID / PAYMENT_FAILED)
+   * và hoàn trả lại tồn kho nguyên liệu trong cùng transaction.
+   */
+  async cancelMyOrder(orderId: string, authUserId: string) {
+    if (!authUserId) {
+      throw new UnauthorizedException('Vui lòng đăng nhập để hủy đơn hàng');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const order = await tx.order.findUnique({
+        where: { orderId },
+        include: {
+          items: {
+            include: {
+              product: {
+                include: {
+                  recipeItems: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (!order) {
+        throw new NotFoundException(`Không tìm thấy đơn hàng có mã: ${orderId}`);
+      }
+
+      if (order.userId !== authUserId) {
+        throw new ForbiddenException('Bạn không có quyền hủy đơn hàng này');
+      }
+
+      // Kiểm tra chuyển đổi sang CANCELLED qua State Machine (ném 400 nếu đơn đang PREPARING/READY/COMPLETED)
+      assertTransition(order.status, OrderStatus.CANCELLED);
+
+      await this.refundIngredientsForOrder(tx, order);
+
+      return tx.order.update({
+        where: { orderId },
+        data: { status: OrderStatus.CANCELLED },
+        include: {
+          items: {
+            include: {
+              size: true,
+              toppings: true,
+              product: {
+                select: {
+                  productId: true,
+                  imageUrl: true,
+                },
+              },
+            },
+          },
+          promotion: true,
+          payments: {
+            orderBy: { createdAt: 'desc' },
+          },
+          loyaltyTransactions: true,
+        },
+      });
+    });
+  }
+
+  /**
+   * Phân hệ 6: Cập nhật trạng thái đơn hàng tuân thủ Order State Machine
+   *   - PAID -> PREPARING (Barista nhận đơn)
+   *   - PREPARING -> READY (Pha xong)
+   *   - READY -> COMPLETED (Đã giao khách)
+   *   - PENDING / PAID / PAYMENT_FAILED -> CANCELLED (Hủy đơn & hoàn kho)
+   * Mọi chuyển trạng thái sai hoặc đi lùi sẽ bị assertTransition ném lỗi 400 Bad Request.
+   */
+  async updateOrderStatus(
+    orderId: string,
+    newStatus: OrderStatus,
+    authUserId: string,
+    role?: string,
+  ) {
+    if (!authUserId) {
+      throw new UnauthorizedException('Vui lòng đăng nhập để cập nhật trạng thái đơn hàng');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const order = await tx.order.findUnique({
+        where: { orderId },
+        include: {
+          items: {
+            include: {
+              product: {
+                include: {
+                  recipeItems: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (!order) {
+        throw new NotFoundException(`Không tìm thấy đơn hàng có mã: ${orderId}`);
+      }
+
+      // 1. Kiểm tra State Machine: ném 400 Bad Request nếu chuyển sai hoặc đi lùi
+      assertTransition(order.status, newStatus);
+
+      // 2. Phân quyền:
+      // Nhân viên (BARISTA / ADMIN) có quyền chuyển tiến trình pha chế/hoàn tất
+      // Khách hàng thông thường chỉ có thể hủy đơn (CANCELLED) trên đơn của mình
+      const isStaff = role === 'BARISTA' || role === 'ADMIN';
+      if (!isStaff) {
+        if (order.userId !== authUserId) {
+          throw new ForbiddenException('Bạn không có quyền cập nhật trạng thái đơn hàng này');
+        }
+        if (newStatus !== OrderStatus.CANCELLED) {
+          throw new ForbiddenException(
+            'Khách hàng chỉ có thể hủy đơn, không có quyền chuyển tiến trình pha chế/hoàn tất.',
+          );
+        }
+      }
+
+      // 3. Nếu chuyển sang CANCELLED thì hoàn kho nguyên liệu
+      if (newStatus === OrderStatus.CANCELLED) {
+        await this.refundIngredientsForOrder(tx, order);
+      }
+
+      return tx.order.update({
+        where: { orderId },
+        data: { status: newStatus },
+        include: {
+          items: {
+            include: {
+              size: true,
+              toppings: true,
+              product: {
+                select: {
+                  productId: true,
+                  imageUrl: true,
+                },
+              },
+            },
+          },
+          promotion: true,
+          payments: {
+            orderBy: { createdAt: 'desc' },
+          },
+          loyaltyTransactions: true,
+        },
+      });
+    });
   }
 
   private async resolveUserId(
@@ -208,6 +566,9 @@ export class OrdersService {
         unitPrice,
         quantity: item.quantity,
         toppingIds: uniqueToppingIds,
+        sugarLevel: item.sugarLevel?.trim() || undefined,
+        iceLevel: item.iceLevel?.trim() || undefined,
+        note: item.note?.trim() || undefined,
       });
 
       const matchingRecipes = product.recipeItems.filter(

@@ -3,10 +3,12 @@ import { Type } from 'class-transformer';
 import {
   ArrayMinSize,
   IsArray,
+  IsIn,
   IsInt,
   IsOptional,
   IsString,
   IsUUID,
+  MaxLength,
   Min,
   ValidateNested,
 } from 'class-validator';
@@ -34,6 +36,24 @@ export class OrderItemInputDto {
   @IsArray({ message: 'toppingIds phải là mảng' })
   @IsUUID('4', { each: true, message: 'Mỗi toppingId phải là UUID hợp lệ' })
   toppingIds?: string[];
+
+  @ApiPropertyOptional({ example: '50%', description: 'Mức đường (tùy chọn)' })
+  @IsOptional()
+  @IsString({ message: 'Mức đường phải là chuỗi' })
+  @MaxLength(30, { message: 'Mức đường tối đa 30 ký tự' })
+  sugarLevel?: string;
+
+  @ApiPropertyOptional({ example: '50% đá', description: 'Mức đá (tùy chọn)' })
+  @IsOptional()
+  @IsString({ message: 'Mức đá phải là chuỗi' })
+  @MaxLength(30, { message: 'Mức đá tối đa 30 ký tự' })
+  iceLevel?: string;
+
+  @ApiPropertyOptional({ example: 'Ít ngọt, không lấy ống hút', description: 'Ghi chú pha chế (tối đa 150 ký tự)' })
+  @IsOptional()
+  @IsString({ message: 'Ghi chú phải là chuỗi' })
+  @MaxLength(150, { message: 'Ghi chú tối đa 150 ký tự' })
+  note?: string;
 }
 
 export class CreateOrderDto {
@@ -43,6 +63,17 @@ export class CreateOrderDto {
   @ValidateNested({ each: true })
   @Type(() => OrderItemInputDto)
   items!: OrderItemInputDto[];
+
+  @ApiPropertyOptional({
+    enum: ['TAKEAWAY', 'DINE_IN'],
+    example: 'TAKEAWAY',
+    description: 'Hình thức nhận hàng: TAKEAWAY (Mang đi) hoặc DINE_IN (Tại quán)',
+  })
+  @IsOptional()
+  @IsIn(['TAKEAWAY', 'DINE_IN'], {
+    message: 'pickupMethod phải là TAKEAWAY hoặc DINE_IN',
+  })
+  pickupMethod?: 'TAKEAWAY' | 'DINE_IN';
 
   @ApiPropertyOptional({ example: 'BREWLITE10', description: 'Mã khuyến mãi (tùy chọn)' })
   @IsOptional()
