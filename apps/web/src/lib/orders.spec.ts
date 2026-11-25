@@ -99,7 +99,7 @@ describe('Order History & Receipt helpers (FR-07 & FR-08)', () => {
     const preparingMeta = getStatusDisplayMeta('PREPARING');
     expect(preparingMeta.bannerTitle).toBe('Quầy đang chuẩn bị món!');
     expect(preparingMeta.cancelHint).toBe('Đơn đang pha chế, không thể hủy.');
-    expect(formatPaymentMethod('MOCK_WALLET')).toBe('Ví Mock Wallet');
+    expect(formatPaymentMethod('VNPAY')).toBe('Cổng VNPay (Sandbox)');
   });
 
   it('recognizes offline/demo session tokens from auth.ts vs real JWTs', () => {

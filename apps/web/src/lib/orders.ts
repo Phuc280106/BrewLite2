@@ -151,10 +151,9 @@ export function getItemBaseLinePrice(
  * Định dạng tên phương thức thanh toán thân thiện người dùng.
  */
 export function formatPaymentMethod(method?: string | null): string {
-  if (!method) return 'Ví Mock Wallet';
+  if (!method) return 'Cổng VNPay (Sandbox)';
   const normalized = method.toUpperCase();
-  if (normalized === 'MOCK_WALLET') return 'Ví Mock Wallet';
-  if (normalized === 'MOCK_CARD') return 'Thẻ ngân hàng (Mock Card)';
+  if (normalized === 'VNPAY') return 'Cổng VNPay (Sandbox)';
   if (normalized === 'CASH') return 'Thanh toán tại quầy';
   return method;
 }
@@ -331,7 +330,7 @@ function createDefaultDemoOrders(userId: string): OrderRecord[] {
         {
           paymentId: 'demo-pay-8921',
           orderId: 'BL-8921',
-          paymentMethod: 'MOCK_WALLET',
+          paymentMethod: 'VNPAY',
           status: 'SUCCESS',
           amount: 64000,
           createdAt: new Date(now - 5 * 60 * 1000).toISOString(),
@@ -395,7 +394,7 @@ function createDefaultDemoOrders(userId: string): OrderRecord[] {
         {
           paymentId: 'demo-pay-8870',
           orderId: 'BL-8870',
-          paymentMethod: 'MOCK_CARD',
+          paymentMethod: 'VNPAY',
           status: 'SUCCESS',
           amount: 78000,
           createdAt: new Date(now - 26 * 60 * 60 * 1000).toISOString(),
