@@ -81,9 +81,12 @@ model Size {
 
 // --- Class Topping ---
 model Topping {
-  toppingId  String      @id @default(uuid()) @map("topping_id")
-  name       String
-  price      Decimal     @db.Decimal(10, 2)
+  toppingId      String      @id @default(uuid()) @map("topping_id")
+  name           String
+  price          Decimal     @db.Decimal(10, 2)
+  unit           String
+  stock          Int         @default(0)
+  requiredAmount Int         @default(1) @map("required_amount")
   
   products   Product[]   // Quan hệ: Product "*" o-- "*" Topping
   cartItems  CartItem[]

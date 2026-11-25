@@ -21,6 +21,10 @@ export interface Topping {
   toppingId: string;
   name: string;
   price: number;
+  stock?: number;
+  requiredAmount?: number;
+  isAvailable?: boolean;
+  maxServings?: number;
 }
 
 export interface Product {

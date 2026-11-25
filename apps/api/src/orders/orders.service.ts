@@ -50,10 +50,11 @@ export class OrdersService {
     return this.prisma.$transaction(async (tx) => {
       const userId = await this.resolveUserId(tx, authUserId);
 
-      const { lines, subtotal, requiredByIngredient } =
+      const { lines, subtotal, requiredByIngredient, requiredByTopping } =
         await this.buildValidatedOrderLines(tx, dto.items);
 
       await this.lockAndDeductIngredients(tx, requiredByIngredient);
+      await this.lockAndDeductToppings(tx, requiredByTopping);
 
       const { promotionId, promotionDiscount } =
         await this.calculatePromotionDiscount(tx, dto.promotionCode, subtotal);
@@ -165,7 +166,13 @@ export class OrdersService {
 
       const order = await tx.order.findUniqueOrThrow({
         where: { orderId },
-        include: { items: true },
+        include: {
+          items: {
+            include: {
+              toppings: true,
+            },
+          },
+        },
       });
 
       // hoanKhoNguyenLieu(donHang): cộng lại đúng lượng đã trừ ở createOrder
@@ -190,6 +197,25 @@ export class OrdersService {
           data: {
             stock: { increment: restoreByIngredient.get(ingredientId) ?? 0 },
             version: { increment: 1 },
+          },
+        });
+      }
+
+      const restoreByTopping = new Map<string, number>();
+      for (const item of order.items as any[]) {
+        for (const topping of item.toppings ?? []) {
+          restoreByTopping.set(
+            topping.toppingId,
+            (restoreByTopping.get(topping.toppingId) ?? 0) +
+              (topping.requiredAmount ?? 1) * item.quantity,
+          );
+        }
+      }
+      for (const toppingId of Array.from(restoreByTopping.keys()).sort()) {
+        await tx.topping.update({
+          where: { toppingId },
+          data: {
+            stock: { increment: restoreByTopping.get(toppingId) ?? 0 },
           },
         });
       }
@@ -344,6 +370,30 @@ export class OrdersService {
         });
       }
     }
+
+    const refundByTopping = new Map<string, number>();
+    for (const item of order.items as any[]) {
+      for (const topping of item.toppings ?? []) {
+        const current = refundByTopping.get(topping.toppingId) ?? 0;
+        refundByTopping.set(
+          topping.toppingId,
+          current + (topping.requiredAmount ?? 1) * item.quantity,
+        );
+      }
+    }
+
+    const sortedToppingIds = Array.from(refundByTopping.keys()).sort();
+    for (const toppingId of sortedToppingIds) {
+      const refundAmount = refundByTopping.get(toppingId) ?? 0;
+      if (refundAmount > 0) {
+        await tx.topping.update({
+          where: { toppingId },
+          data: {
+            stock: { increment: refundAmount },
+          },
+        });
+      }
+    }
   }
 
   /**
@@ -361,6 +411,7 @@ export class OrdersService {
         include: {
           items: {
             include: {
+              toppings: true,
               product: {
                 include: {
                   recipeItems: true,
@@ -434,6 +485,7 @@ export class OrdersService {
         include: {
           items: {
             include: {
+              toppings: true,
               product: {
                 include: {
                   recipeItems: true,
@@ -528,6 +580,7 @@ export class OrdersService {
     const productMap = new Map(products.map((p) => [p.productId, p]));
     const lines: ValidatedOrderLine[] = [];
     const requiredByIngredient = new Map<string, number>();
+    const requiredByTopping = new Map<string, number>();
     let subtotal = 0;
 
     for (const item of items) {
@@ -553,6 +606,11 @@ export class OrdersService {
           );
         }
         toppingsPrice += Number(topping.price);
+        const currentTopping = requiredByTopping.get(toppingId) ?? 0;
+        requiredByTopping.set(
+          toppingId,
+          currentTopping + (topping.requiredAmount ?? 1) * item.quantity,
+        );
       }
 
       const unitPrice =
@@ -583,7 +641,55 @@ export class OrdersService {
       }
     }
 
-    return { lines, subtotal, requiredByIngredient };
+    return { lines, subtotal, requiredByIngredient, requiredByTopping };
+  }
+
+  private async lockAndDeductToppings(
+    tx: Prisma.TransactionClient,
+    requiredByTopping: Map<string, number>,
+  ) {
+    if (requiredByTopping.size === 0) {
+      return;
+    }
+
+    const sortedIds = Array.from(requiredByTopping.keys()).sort();
+
+    const lockedRows = await tx.$queryRaw<
+      Array<{ topping_id: string; name: string; stock: number }>
+    >`
+      SELECT topping_id, name, stock
+      FROM toppings
+      WHERE topping_id = ANY(${sortedIds}::text[])
+      ORDER BY topping_id ASC
+      FOR UPDATE
+    `;
+
+    const lockedMap = new Map(lockedRows.map((row) => [row.topping_id, row]));
+
+    for (const toppingId of sortedIds) {
+      const required = requiredByTopping.get(toppingId) ?? 0;
+      const row = lockedMap.get(toppingId);
+
+      if (!row) {
+        throw new NotFoundException(`Không tìm thấy topping: ${toppingId}`);
+      }
+
+      if (row.stock < required) {
+        throw new ConflictException(
+          `Tạo đơn không thành công do không đủ Topping`,
+        );
+      }
+    }
+
+    for (const toppingId of sortedIds) {
+      const required = requiredByTopping.get(toppingId) ?? 0;
+      await tx.topping.update({
+        where: { toppingId },
+        data: {
+          stock: { decrement: required },
+        },
+      });
+    }
   }
 
   private async lockAndDeductIngredients(
@@ -617,7 +723,7 @@ export class OrdersService {
 
       if (row.stock < required) {
         throw new ConflictException(
-          `Rất tiếc, nguyên liệu "${row.name}" không đủ tồn kho (còn ${row.stock}, cần ${required}).`,
+          `Tạo đơn không thành công do không đủ nguyên liệu.`,
         );
       }
     }

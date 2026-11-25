@@ -8,14 +8,14 @@ export class OptionsController {
   constructor(private readonly optionsService: OptionsService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Lấy danh sách tùy chọn/trạng thái tồn kho của tất cả sản phẩm' })
+  @ApiOperation({ summary: 'Lấy danh sách tất cả topping và trạng thái tồn kho' })
   findAll() {
     return this.optionsService.findAll();
   }
 
-  @Get('products/:id')
-  @ApiOperation({ summary: 'Lấy tùy chọn và trạng thái tồn kho (isAvailable, maxServings) theo sản phẩm' })
-  findByProductId(@Param('id', ParseUUIDPipe) id: string) {
-    return this.optionsService.findByProductId(id);
+  @Get(':id')
+  @ApiOperation({ summary: 'Lấy chi tiết một topping' })
+  findByToppingId(@Param('id', ParseUUIDPipe) id: string) {
+    return this.optionsService.findByToppingId(id);
   }
 }

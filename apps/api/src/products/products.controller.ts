@@ -10,7 +10,7 @@ export class ProductsController {
 
   // GET /api/v1/products (hỗ trợ ?categoryId=...&search=...)
   @Get()
-  @ApiOperation({ summary: 'Lấy danh sách đồ uống (hỗ trợ tìm kiếm & lọc theo danh mục)' })
+  @ApiOperation({ summary: 'Lấy danh sách đồ uống kèm trạng thái tồn kho (isAvailable, maxServings), hỗ trợ tìm kiếm & lọc theo danh mục' })
   findAll(@Query() query: QueryProductDto) {
     return this.productsService.findAll(query);
   }
@@ -24,7 +24,7 @@ export class ProductsController {
 
   // GET /api/v1/products/:id (xem chi tiết kèm size, topping)
   @Get(':id')
-  @ApiOperation({ summary: 'Xem chi tiết sản phẩm kèm Size và Topping' })
+  @ApiOperation({ summary: 'Xem chi tiết sản phẩm kèm Size, Topping và trạng thái tồn kho (isAvailable, maxServings)' })
   findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.productsService.findOne(id);
   }

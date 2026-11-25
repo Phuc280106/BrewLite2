@@ -90,29 +90,8 @@ export default function MenuPage() {
         throw new Error('Dữ liệu thực đơn không hợp lệ');
       }
 
-      // Nạp thông tin tồn kho / options từ OptionsModule để đồng bộ isAvailable
-      let finalProducts = prodData as Product[];
-      try {
-        const optRes = await fetch(`${API_BASE}/options`, { cache: 'no-store' });
-        if (optRes.ok) {
-          const optList: any[] = await optRes.json();
-          if (Array.isArray(optList)) {
-            const optMap = new Map(optList.map((o) => [o.productId, o]));
-            finalProducts = finalProducts.map((p) => {
-              const opt = optMap.get(p.productId);
-              return opt
-                ? {
-                    ...p,
-                    isAvailable: opt.isAvailable,
-                    maxServings: opt.maxServings,
-                  }
-                : p;
-            });
-          }
-        }
-      } catch {
-        // Nếu endpoint options chưa sẵn sàng thì giữ nguyên trạng thái mặc định
-      }
+      // Sản phẩm từ ProductsModule đã bao gồm isAvailable và maxServings
+      const finalProducts = prodData as Product[];
 
       // Danh sách rỗng là kết quả hợp lệ (lọc/tìm kiếm không có món) -> hiện EmptyState
       setProducts(finalProducts);

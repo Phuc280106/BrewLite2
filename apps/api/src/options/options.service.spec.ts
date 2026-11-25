@@ -1,13 +1,13 @@
 import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { OptionsService } from './options.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { OptionsService } from './options.service';
 
 describe('OptionsService', () => {
   let service: OptionsService;
 
   const mockPrisma = {
-    product: {
+    topping: {
       findMany: jest.fn(),
       findUnique: jest.fn(),
     },
@@ -17,10 +17,7 @@ describe('OptionsService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         OptionsService,
-        {
-          provide: PrismaService,
-          useValue: mockPrisma,
-        },
+        { provide: PrismaService, useValue: mockPrisma },
       ],
     }).compile();
 
@@ -28,116 +25,92 @@ describe('OptionsService', () => {
     jest.clearAllMocks();
   });
 
-  it('should be defined', () => {
-    expect(service).toBeDefined();
-  });
-
-  describe('calculateServingsFromRecipes', () => {
-    it('nên trả về isAvailable=true và maxServings=999 nếu không có công thức nguyên liệu', () => {
-      const result = service.calculateServingsFromRecipes([]);
-      expect(result).toEqual({ isAvailable: true, maxServings: 999 });
-    });
-
-    it('nên tính đúng maxServings dựa trên nguyên liệu có số phần tối thiểu', () => {
-      const recipes = [
-        { requiredAmount: 20, ingredient: { stock: 100 } }, // 100 / 20 = 5 servings
-        { requiredAmount: 50, ingredient: { stock: 150 } }, // 150 / 50 = 3 servings -> chai lọ cổ chai
-      ];
-      const result = service.calculateServingsFromRecipes(recipes);
+  describe('calculateToppingServings', () => {
+    it('nên trả về isAvailable=true và maxServings tính theo stock / requiredAmount', () => {
+      const result = service.calculateToppingServings({
+        stock: 150,
+        requiredAmount: 50,
+      });
       expect(result).toEqual({ isAvailable: true, maxServings: 3 });
     });
 
-    it('nên trả về isAvailable=false và maxServings=0 khi một nguyên liệu hết hàng (stock = 0)', () => {
-      const recipes = [
-        { requiredAmount: 20, ingredient: { stock: 100 } },
-        { requiredAmount: 50, ingredient: { stock: 0 } },
-      ];
-      const result = service.calculateServingsFromRecipes(recipes);
+    it('nên trả về isAvailable=false và maxServings=0 khi stock nhỏ hơn requiredAmount', () => {
+      const result = service.calculateToppingServings({
+        stock: 30,
+        requiredAmount: 50,
+      });
       expect(result).toEqual({ isAvailable: false, maxServings: 0 });
     });
 
-    it('nên trả về isAvailable=false khi stock nhỏ hơn requiredAmount', () => {
-      const recipes = [
-        { requiredAmount: 20, ingredient: { stock: 15 } },
-      ];
-      const result = service.calculateServingsFromRecipes(recipes);
+    it('nên trả về isAvailable=false và maxServings=0 khi hết topping (stock = 0)', () => {
+      const result = service.calculateToppingServings({
+        stock: 0,
+        requiredAmount: 50,
+      });
       expect(result).toEqual({ isAvailable: false, maxServings: 0 });
     });
   });
 
   describe('findAll', () => {
-    it('nên trả về danh sách tùy chọn và tình trạng tồn kho cho tất cả sản phẩm', async () => {
-      const mockProducts = [
-        {
-          productId: 'p-1',
-          name: 'Cà phê sữa đá',
-          sizes: [
-            { sizeId: 's-m', name: 'Size M', priceAdjustment: 0 },
-            { sizeId: 's-l', name: 'Size L', priceAdjustment: 5000 },
-          ],
-          toppings: [{ toppingId: 't-1', name: 'Trân châu', price: 5000 }],
-          recipeItems: [
-            { sizeId: 's-m', requiredAmount: 20, ingredient: { stock: 40 } }, // 2 servings
-            { sizeId: 's-l', requiredAmount: 30, ingredient: { stock: 40 } }, // 1 serving
-          ],
-        },
-      ];
-
-      mockPrisma.product.findMany.mockResolvedValue(mockProducts);
+    it('nên trả về danh sách topping kèm trạng thái tồn kho từ bảng toppings', async () => {
+      mockPrisma.topping.findMany.mockResolvedValue([
+        { toppingId: 'top-1', name: 'Trân châu đen', price: 5000, stock: 200, requiredAmount: 50 },
+        { toppingId: 'top-2', name: 'Kem cheese', price: 10000, stock: 0, requiredAmount: 40 },
+      ]);
 
       const result = await service.findAll();
-
-      expect(result).toHaveLength(1);
-      expect(result[0].productId).toBe('p-1');
-      expect(result[0].isAvailable).toBe(true);
-      expect(result[0].maxServings).toBe(2);
-      expect(result[0].sizes).toEqual([
+      expect(result).toEqual([
         {
-          sizeId: 's-m',
-          sizeName: 'Size M',
-          priceAdjustment: 0,
+          toppingId: 'top-1',
+          name: 'Trân châu đen',
+          price: 5000,
+          stock: 200,
+          requiredAmount: 50,
           isAvailable: true,
-          maxServings: 2,
+          maxServings: 4,
         },
         {
-          sizeId: 's-l',
-          sizeName: 'Size L',
-          priceAdjustment: 5000,
-          isAvailable: true,
-          maxServings: 1,
+          toppingId: 'top-2',
+          name: 'Kem cheese',
+          price: 10000,
+          stock: 0,
+          requiredAmount: 40,
+          isAvailable: false,
+          maxServings: 0,
         },
       ]);
     });
   });
 
-  describe('findByProductId', () => {
-    it('nên trả về chi tiết tùy chọn của sản phẩm', async () => {
-      const mockProduct = {
-        productId: 'p-1',
-        name: 'Trà Oolong',
-        sizes: [
-          { sizeId: 's-m', name: 'Size M', priceAdjustment: 0 },
-        ],
-        toppings: [],
-        recipeItems: [
-          { sizeId: 's-m', requiredAmount: 20, ingredient: { stock: 0 } },
-        ],
-      };
+  describe('findByToppingId', () => {
+    it('nên trả về đúng một topping theo id', async () => {
+      mockPrisma.topping.findUnique.mockResolvedValue({
+        toppingId: 'top-1',
+        name: 'Trân châu đen',
+        price: 5000,
+        stock: 100,
+        requiredAmount: 50,
+      });
 
-      mockPrisma.product.findUnique.mockResolvedValue(mockProduct);
-
-      const result = await service.findByProductId('p-1');
-
-      expect(result.productId).toBe('p-1');
-      expect(result.isAvailable).toBe(false);
-      expect(result.maxServings).toBe(0);
-      expect(result.sizes[0].isAvailable).toBe(false);
+      await expect(service.findByToppingId('top-1')).resolves.toEqual({
+        toppingId: 'top-1',
+        name: 'Trân châu đen',
+        price: 5000,
+        stock: 100,
+        requiredAmount: 50,
+        isAvailable: true,
+        maxServings: 2,
+      });
+      expect(mockPrisma.topping.findUnique).toHaveBeenCalledWith({
+        where: { toppingId: 'top-1' },
+      });
+      expect(mockPrisma.topping.findMany).not.toHaveBeenCalled();
     });
 
-    it('nên ném NotFoundException khi không tìm thấy sản phẩm', async () => {
-      mockPrisma.product.findUnique.mockResolvedValue(null);
+    it('nên ném NotFoundException nếu không tìm thấy topping', async () => {
+      mockPrisma.topping.findUnique.mockResolvedValue(null);
 
-      await expect(service.findByProductId('non-existent')).rejects.toThrow(
+      await expect(service.findByToppingId('missing-id')).rejects.toThrow(
         NotFoundException,
       );
     });

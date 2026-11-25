@@ -43,12 +43,12 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
     let cancelled = false;
 
-    // Gọi song song options theo product và chi tiết product
+    // Lấy danh sách topping để ghép trạng thái tồn kho vào chi tiết sản phẩm
     Promise.all([
       fetch(`${API_BASE}/products/${product.productId}`, { cache: 'no-store' })
         .then((res) => (res.ok ? res.json() : null))
         .catch(() => null),
-      fetch(`${API_BASE}/options/products/${product.productId}`, { cache: 'no-store' })
+      fetch(`${API_BASE}/options`, { cache: 'no-store' })
         .then((res) => (res.ok ? res.json() : null))
         .catch(() => null),
     ]).then(([prodData, optData]) => {
@@ -56,34 +56,35 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
       if (prodData || optData) {
         setDetailProduct((prev) => {
           const base = prodData || prev;
-          if (optData) {
-            const mergedSizes = (base.sizes || []).map((s: Size) => {
-              const optSize = optData.sizes?.find((os: any) => os.sizeId === s.sizeId);
-              return {
-                ...s,
-                isAvailable: optSize ? optSize.isAvailable : s.isAvailable,
-                maxServings: optSize ? optSize.maxServings : s.maxServings,
-              };
+          if (Array.isArray(optData)) {
+            const mergedToppings = (base.toppings || []).map((t: any) => {
+              const optTopping = optData.find((ot: any) => ot.toppingId === t.toppingId);
+              return optTopping
+                ? {
+                    ...t,
+                    stock: optTopping.stock,
+                    requiredAmount: optTopping.requiredAmount,
+                    isAvailable: optTopping.isAvailable,
+                    maxServings: optTopping.maxServings,
+                  }
+                : t;
             });
             return {
               ...base,
-              isAvailable: optData.isAvailable,
-              maxServings: optData.maxServings,
-              sizes: mergedSizes,
+              toppings: mergedToppings,
             };
           }
           return base;
         });
 
-        if (optData?.sizes?.length) {
+        const productSizes = prodData?.sizes || product.sizes;
+        if (productSizes?.length) {
           // Tự động ưu tiên chọn size còn hàng đầu tiên
-          const availableSize = optData.sizes.find((s: any) => s.isAvailable);
+          const availableSize = productSizes.find((s: any) => s.isAvailable !== false);
           if (availableSize) {
             setSelectedSize((prev) => {
-              if (prev && !optData.sizes.find((s: any) => s.sizeId === prev.sizeId)?.isAvailable) {
-                return (prodData?.sizes || product.sizes)?.find(
-                  (s: Size) => s.sizeId === availableSize.sizeId,
-                );
+              if (prev && productSizes.find((s: any) => s.sizeId === prev.sizeId)?.isAvailable === false) {
+                return availableSize;
               }
               return prev;
             });
@@ -308,6 +309,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 </div>
                 <div className="space-y-2">
                   {detailProduct.toppings.map((topping) => {
+                    const toppingAvailable = topping.isAvailable !== false;
                     const isSelected = selectedToppings.some(
                       (t) => t.toppingId === topping.toppingId
                     );
@@ -315,9 +317,12 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                       <button
                         key={topping.toppingId}
                         type="button"
-                        onClick={() => toggleTopping(topping)}
+                        disabled={!toppingAvailable}
+                        onClick={() => toppingAvailable && toggleTopping(topping)}
                         className={`w-full py-2.5 px-3 rounded-xl border text-xs flex items-center justify-between transition ${
-                          isSelected
+                          !toppingAvailable
+                            ? 'border-stone-200 bg-stone-100 text-stone-400 cursor-not-allowed opacity-60 grayscale'
+                            : isSelected
                             ? 'border-[#D97706] bg-[#FFF8ED] text-stone-900 font-medium'
                             : 'border-stone-200 text-stone-700 hover:border-stone-300 bg-white'
                         }`}
@@ -325,16 +330,21 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                         <div className="flex items-center gap-2">
                           <div
                             className={`w-4 h-4 rounded flex items-center justify-center border transition ${
-                              isSelected
+                              !toppingAvailable
+                                ? 'border-stone-300 bg-stone-200'
+                                : isSelected
                                 ? 'bg-[#3D2615] border-[#3D2615] text-white'
                                 : 'border-stone-300 bg-white'
                             }`}
                           >
-                            {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                            {isSelected && toppingAvailable && <Check className="w-3 h-3 stroke-[3]" />}
                           </div>
-                          <span>{topping.name}</span>
+                          <span>
+                            {topping.name}
+                            {!toppingAvailable && ' (Hết hàng)'}
+                          </span>
                         </div>
-                        <span className="font-semibold text-stone-800">
+                        <span className={`font-semibold ${!toppingAvailable ? 'text-stone-400' : 'text-stone-800'}`}>
                           +{formatVND(toNumeric(topping.price))}
                         </span>
                       </button>
