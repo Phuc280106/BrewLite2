@@ -14,6 +14,7 @@ import {
   findPromotionByCode,
   formatVND,
   LOYALTY_REDEEM_RATE,
+  MIN_ORDER_PAYABLE_AMOUNT,
   normalizePromotionRule,
   toNumeric,
 } from '@/lib/cartPricing';
@@ -369,8 +370,12 @@ export const useCartStore = create<CartState>()(
           pointsRedeemed: 0,
         }).grandTotal;
 
+        const maxDiscountable = Math.max(
+          0,
+          afterPromoSubtotal - MIN_ORDER_PAYABLE_AMOUNT,
+        );
         const maxApplicablePoints = Math.floor(
-          afterPromoSubtotal / LOYALTY_REDEEM_RATE,
+          maxDiscountable / LOYALTY_REDEEM_RATE,
         );
 
         if (maxApplicablePoints <= 0) {

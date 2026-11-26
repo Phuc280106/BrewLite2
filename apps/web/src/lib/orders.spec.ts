@@ -59,9 +59,9 @@ describe('Order History & Receipt helpers (FR-07 & FR-08)', () => {
     ).toBe(0);
   });
 
-  it('allows cancelling when status is PENDING, PAID, or PAYMENT_FAILED (FR-12 & State Machine)', () => {
+  it('allows cancelling only when status is PENDING or PAYMENT_FAILED (FR-12 & State Machine)', () => {
     expect(canCancelOrder('PENDING')).toBe(true);
-    expect(canCancelOrder('PAID')).toBe(true);
+    expect(canCancelOrder('PAID')).toBe(false);
     expect(canCancelOrder('PAYMENT_FAILED')).toBe(true);
     expect(canCancelOrder('PREPARING')).toBe(false);
     expect(canCancelOrder('READY')).toBe(false);

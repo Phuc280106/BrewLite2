@@ -33,11 +33,9 @@ import {
   formatOrderDateTime,
   formatPaymentMethod,
   getItemBaseLinePrice,
-  getShortPickupCode,
   getStatusDisplayMeta,
 } from '@/lib/orders';
 import { OrderStatusStepper } from './OrderStatusStepper';
-import { PickupBarcodeSvg, PickupQrSvg } from './OrderPickupCodes';
 
 interface OrderReceiptViewProps {
   orderId: string;
@@ -239,15 +237,18 @@ export const OrderReceiptView: React.FC<OrderReceiptViewProps> = ({
   }
 
   const orderCode = formatOrderCode(order.orderId);
-  const pickupCode = getShortPickupCode(order.orderId);
   const statusMeta = getStatusDisplayMeta(order.status);
   const earnedPoints = calculateEarnedPoints(order);
   const cancellable = canCancelOrder(order.status);
   const latestPayment = order.payments?.[0];
-  // Chỉ đơn PENDING (chưa thanh toán thành công) mới thanh toán được; sau khi thanh toán đơn chuyển PREPARING.
-  const payable = order.status === 'PENDING' && latestPayment?.status !== 'SUCCESS';
+  // Chỉ đơn PENDING hoặc PAYMENT_FAILED (chưa thanh toán thành công) mới thanh toán/thanh toán lại được.
+  const payable =
+    (order.status === 'PENDING' || order.status === 'PAYMENT_FAILED') &&
+    latestPayment?.status !== 'SUCCESS';
   const payButtonLabel =
-    latestPayment?.status === 'FAILED' ? 'Thanh toán lại' : 'Thanh toán ngay';
+    order.status === 'PAYMENT_FAILED' || latestPayment?.status === 'FAILED'
+      ? 'Thanh toán lại'
+      : 'Thanh toán ngay';
   const discountAmount = Number(order.discountAmount) || 0;
   const totalAmount = Number(order.totalAmount) || 0;
 
@@ -351,33 +352,6 @@ export const OrderReceiptView: React.FC<OrderReceiptViewProps> = ({
         {/* Thanh tiến trình 4 bước OrderStatusStepper (Figma 14:50) */}
         <section className="py-1">
           <OrderStatusStepper status={order.status} />
-        </section>
-
-        {/* Thẻ mã nhận món QR + Barcode (Figma 14:51) */}
-        <section
-          data-testid="pickup-pass-card"
-          className="bg-white border border-[#EAE4DB] rounded-[20px] p-3 flex items-center gap-3"
-        >
-          <div className="shrink-0">
-            <PickupQrSvg value={orderCode} size={116} />
-          </div>
-          <div className="flex flex-col gap-1 min-w-0 flex-1">
-            <span className="font-medium text-[14px] leading-[18px] text-[#4B5563]">
-              Mã nhận món
-            </span>
-            <span
-              data-testid="pickup-code"
-              className="font-bold text-[36px] leading-[42px] text-[#3D2615] tracking-tight"
-            >
-              {pickupCode}
-            </span>
-            <div className="overflow-hidden max-w-full">
-              <PickupBarcodeSvg value={pickupCode} width={154} height={30} />
-            </div>
-            <span className="text-[14px] leading-[18px] text-[#4B5563]">
-              Quét mã khi nhận món
-            </span>
-          </div>
         </section>
 
         {/* Thẻ chi tiết biên nhận (Figma 14:52) */}
