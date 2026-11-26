@@ -8,6 +8,9 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
+# Prisma needs OpenSSL to select the correct Alpine query engine.
+RUN apk add --no-cache openssl
+
 # Copy dependency definitions and prisma schema
 COPY package*.json ./
 COPY prisma ./prisma/
@@ -30,6 +33,9 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3001
 
+# Keep Prisma's runtime query engine compatible with Alpine.
+RUN apk add --no-cache openssl
+
 # Copy dependency definitions and prisma schema
 COPY package*.json ./
 COPY prisma ./prisma/
@@ -42,4 +48,4 @@ COPY --from=builder /app/dist ./dist
 
 EXPOSE 3001
 
-CMD ["node", "dist/main"]
+CMD ["node", "dist/src/main"]

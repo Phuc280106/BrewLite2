@@ -13,12 +13,18 @@ export interface Size {
   sizeId: string;
   name: string;
   priceAdjustment: number;
+  isAvailable?: boolean;
+  maxServings?: number;
 }
 
 export interface Topping {
   toppingId: string;
   name: string;
   price: number;
+  stock?: number;
+  requiredAmount?: number;
+  isAvailable?: boolean;
+  maxServings?: number;
 }
 
 export interface Product {
@@ -31,6 +37,8 @@ export interface Product {
   category?: Category;
   sizes?: Size[];
   toppings?: Topping[];
+  isAvailable?: boolean;
+  maxServings?: number;
 }
 
 export interface QueryProductParams {

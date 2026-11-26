@@ -64,12 +64,15 @@ export function ProductCard({ product, onSelect }: ProductCardProps) {
 
   // Lấy ảnh từ DB, nếu DB bị null thì lấy từ bảng ảnh dự phòng
   const resolvedImageUrl = product.imageUrl || DEFAULT_PRODUCT_IMAGES[product.name] || null;
+  const isAvailable = product.isAvailable !== false;
 
   return (
     <div
       onClick={() => onSelect(product)}
       data-testid={`product-card-${product.productId}`}
-      className="group bg-white rounded-2xl p-2.5 border border-stone-200/80 hover:border-amber-400 shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col justify-between"
+      className={`group bg-white rounded-2xl p-2.5 border border-stone-200/80 hover:border-amber-400 shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col justify-between ${
+        !isAvailable ? 'opacity-75' : ''
+      }`}
     >
       <div>
         {/* Khung ảnh đại diện món */}
@@ -79,17 +82,25 @@ export function ProductCard({ product, onSelect }: ProductCardProps) {
               src={resolvedImageUrl}
               alt={product.name}
               referrerPolicy="no-referrer"
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ${
+                !isAvailable ? 'grayscale contrast-75' : ''
+              }`}
               onError={() => setImgError(true)}
             />
           ) : (
             <DrinkGraphicFallback name={product.name} />
           )}
 
-          {/* Tag "Còn hàng" chuẩn màu xanh lá như bản thiết kế */}
-          <span className="absolute top-1.5 left-1.5 bg-[#E8F5E9] text-[#2E7D32] border border-[#C8E6C9] text-[9px] px-2 py-0.5 rounded-full font-bold shadow-xs">
-            Còn hàng
-          </span>
+          {/* Tag trạng thái "Còn hàng" hoặc "Hết hàng" */}
+          {isAvailable ? (
+            <span className="absolute top-1.5 left-1.5 bg-[#E8F5E9] text-[#2E7D32] border border-[#C8E6C9] text-[9px] px-2 py-0.5 rounded-full font-bold shadow-xs">
+              Còn hàng
+            </span>
+          ) : (
+            <span className="absolute top-1.5 left-1.5 bg-red-100 text-red-700 border border-red-200 text-[9px] px-2 py-0.5 rounded-full font-bold shadow-xs">
+              Hết hàng
+            </span>
+          )}
         </div>
 
         {/* Tên món */}
@@ -112,8 +123,13 @@ export function ProductCard({ product, onSelect }: ProductCardProps) {
         </span>
         <button
           type="button"
-          aria-label={`Chọn ${product.name}`}
-          className="w-8 h-8 rounded-full bg-[#C8651B] text-white hover:bg-[#B25714] active:scale-95 flex items-center justify-center transition shadow-md"
+          aria-label={isAvailable ? `Chọn ${product.name}` : `Hết hàng: ${product.name}`}
+          disabled={!isAvailable}
+          className={`w-8 h-8 rounded-full flex items-center justify-center transition shadow-md ${
+            isAvailable
+              ? 'bg-[#C8651B] text-white hover:bg-[#B25714] active:scale-95'
+              : 'bg-stone-300 text-stone-500 cursor-not-allowed shadow-none'
+          }`}
         >
           <Plus className="w-4 h-4" />
         </button>

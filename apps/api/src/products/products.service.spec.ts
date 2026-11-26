@@ -52,19 +52,35 @@ describe('ProductsService', () => {
           mode: 'insensitive',
         },
       },
-      include: { category: true },
+      include: {
+        category: true,
+        sizes: true,
+        recipeItems: {
+          include: {
+            ingredient: true,
+          },
+        },
+      },
       orderBy: { name: 'asc' },
     });
-    expect(result).toEqual(expected);
+    expect(result).toEqual([
+      {
+        productId: 'p1',
+        name: 'Cà Phê Muối',
+        isAvailable: true,
+        maxServings: 999,
+      },
+    ]);
   });
 
-  it('findOne should return product with category, sizes, and toppings', async () => {
+  it('findOne should return product with category, sizes, toppings, isAvailable, and maxServings', async () => {
     const product = {
       productId: 'p1',
       name: 'Trà Sữa Oolong Nướng',
       category: { categoryId: 'c1', name: 'Trà sữa' },
       sizes: [],
       toppings: [],
+      recipeItems: [],
     };
     mockPrisma.product.findUnique.mockResolvedValue(product);
 
@@ -76,9 +92,37 @@ describe('ProductsService', () => {
         category: true,
         sizes: true,
         toppings: true,
+        recipeItems: {
+          include: {
+            ingredient: true,
+          },
+        },
       },
     });
-    expect(result).toEqual(product);
+    expect(result).toEqual({
+      productId: 'p1',
+      name: 'Trà Sữa Oolong Nướng',
+      category: { categoryId: 'c1', name: 'Trà sữa' },
+      sizes: [],
+      toppings: [],
+      isAvailable: true,
+      maxServings: 999,
+    });
+  });
+
+  it('calculateServingsFromRecipes should compute isAvailable and maxServings accurately', () => {
+    expect(
+      service.calculateServingsFromRecipes([
+        { requiredAmount: 20, ingredient: { stock: 65 } },
+        { requiredAmount: 10, ingredient: { stock: 50 } },
+      ]),
+    ).toEqual({ isAvailable: true, maxServings: 3 });
+
+    expect(
+      service.calculateServingsFromRecipes([
+        { requiredAmount: 20, ingredient: { stock: 0 } },
+      ]),
+    ).toEqual({ isAvailable: false, maxServings: 0 });
   });
 
   it('findOne should throw NotFoundException when product does not exist', async () => {
