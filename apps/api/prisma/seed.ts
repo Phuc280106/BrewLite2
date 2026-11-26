@@ -67,15 +67,15 @@ async function main() {
     data: { name: 'L (Lớn)', priceAdjustment: 8000 },
   });
 
-  // 3. Tạo các Topping mẫu chuẩn
+  // 3. Tạo các Topping mẫu chuẩn (kèm khối lượng tồn kho & định mức mỗis phần)
   const topTranChau = await prisma.topping.create({
-    data: { name: 'Trân châu đen', price: 5000 },
+    data: { name: 'Trân châu đen', price: 5000, unit: 'g', stock: 1000, requiredAmount: 20 },
   });
   const topPudding = await prisma.topping.create({
-    data: { name: 'Pudding trứng', price: 8000 },
+    data: { name: 'Pudding trứng', price: 8000, unit: 'g', stock: 600, requiredAmount: 15 },
   });
   const topKemCheese = await prisma.topping.create({
-    data: { name: 'Kem cheese', price: 10000 },
+    data: { name: 'Kem cheese', price: 10000, unit: 'g', stock: 500, requiredAmount: 10 },
   });
 
   // 4. Danh sách 10 món nước mẫu của Phước (khớp 100% với giao diện Figma)

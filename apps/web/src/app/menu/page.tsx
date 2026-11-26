@@ -47,6 +47,7 @@ export default function MenuPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [toastType, setToastType] = useState<'success' | 'error'>('success');
 
   const cartItems = useCartStore((state) => state.items);
   const addCartItem = useCartStore((state) => state.addItem);
@@ -88,8 +89,12 @@ export default function MenuPage() {
       if (!Array.isArray(prodData)) {
         throw new Error('Dữ liệu thực đơn không hợp lệ');
       }
+
+      // Sản phẩm từ ProductsModule đã bao gồm isAvailable và maxServings
+      const finalProducts = prodData as Product[];
+
       // Danh sách rỗng là kết quả hợp lệ (lọc/tìm kiếm không có món) -> hiện EmptyState
-      setProducts(prodData as Product[]);
+      setProducts(finalProducts);
     } catch {
       // Không dùng dữ liệu giả: món giả có ID không phải UUID sẽ làm đặt hàng thất bại
       setProducts([]);
@@ -121,7 +126,10 @@ export default function MenuPage() {
 
   const handleAddToCart = (payload: AddToCartInput) => {
     const added = addCartItem(payload);
-    setToastMessage(`Đã thêm ${payload.quantity}x ${added.productName} (${formatVND(added.unitPrice * payload.quantity)}) vào giỏ hàng`);
+    setToastType('success');
+    setToastMessage(
+      `Đã thêm ${payload.quantity}x ${added.productName} (${formatVND(added.unitPrice * payload.quantity)}) vào giỏ hàng`,
+    );
   };
 
   return (
@@ -141,7 +149,7 @@ export default function MenuPage() {
               </h1>
               <div className="flex items-center gap-1 text-xs text-stone-500 font-medium cursor-pointer hover:text-stone-700 mt-1">
                 <span>SGU Central Hub</span>
-                <ChevronDown className="w-3.5 h-3.5 text-stone-400" />
+                
               </div>
             </div>
           </div>
@@ -350,7 +358,15 @@ export default function MenuPage() {
               <ProductCard
                 key={product.productId}
                 product={product}
-                onSelect={(p) => setSelectedProduct(p)}
+                onSelect={(p) => {
+                  if (p.isAvailable === false) {
+                    setToastType('error');
+                    setToastMessage('Sản phẩm đã hết hàng, vui lòng chọn sản phẩm khác.');
+                    return;
+                  }
+
+                  setSelectedProduct(p);
+                }}
               />
             ))}
           </div>
@@ -398,20 +414,25 @@ export default function MenuPage() {
         </div>
       </nav>
 
-      {/* Toast thông báo thêm món vào giỏ hàng thành công */}
       {toastMessage && (
         <div
-          role="status"
-          className="fixed bottom-20 left-4 right-4 sm:left-auto sm:right-6 sm:max-w-md z-50 bg-[#3D2615] text-white px-4 py-3 rounded-2xl shadow-xl border border-amber-900/30 flex items-center justify-between gap-3 animate-fadeIn"
+          role={toastType === 'error' ? 'alert' : 'status'}
+          className={`fixed bottom-20 left-4 right-4 sm:left-auto sm:right-6 sm:max-w-md z-50 text-white px-4 py-3 rounded-2xl shadow-xl flex items-center justify-between gap-3 animate-fadeIn ${
+            toastType === 'error'
+              ? 'bg-red-700 border border-red-900/30'
+              : 'bg-[#3D2615] border border-amber-900/30'
+          }`}
         >
           <span className="text-xs sm:text-sm font-medium leading-snug">{toastMessage}</span>
-          <button
-            type="button"
-            onClick={() => router.push('/cart')}
-            className="shrink-0 bg-[#D97706] hover:bg-[#C26804] text-white text-xs font-bold px-3 py-1.5 rounded-xl transition cursor-pointer"
-          >
-            Xem giỏ hàng
-          </button>
+          {toastType === 'success' && (
+            <button
+              type="button"
+              onClick={() => router.push('/cart')}
+              className="shrink-0 bg-[#D97706] hover:bg-[#C26804] text-white text-xs font-bold px-3 py-1.5 rounded-xl transition cursor-pointer"
+            >
+              Xem giỏ hàng
+            </button>
+          )}
         </div>
       )}
 

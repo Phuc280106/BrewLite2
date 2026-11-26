@@ -18,6 +18,9 @@ describe('OrdersService', () => {
     ingredient: {
       update: jest.fn(),
     },
+    topping: {
+      update: jest.fn(),
+    },
     promotion: {
       findUnique: jest.fn(),
     },
@@ -69,10 +72,18 @@ describe('OrdersService', () => {
   it('should create order, lock & deduct stock, and calculate server-side total', async () => {
     mockTx.user.findUnique.mockResolvedValue({ userId: 'user-1' });
     mockTx.product.findMany.mockResolvedValue([sampleProduct]);
-    mockTx.$queryRaw.mockResolvedValue([
-      { ingredient_id: 'ing-milk', name: 'Sữa tươi', stock: 5000 },
-      { ingredient_id: 'ing-oolong', name: 'Trà Oolong', stock: 500 },
-    ]);
+    mockTx.$queryRaw.mockImplementation(async (query: any) => {
+      const sqlText = query?.strings ? query.strings.join(' ') : String(query);
+      if (sqlText.includes('from toppings') || sqlText.includes('FROM toppings')) {
+        return [
+          { topping_id: 'top-1', name: 'Trân châu đen', stock: 100 },
+        ];
+      }
+      return [
+        { ingredient_id: 'ing-milk', name: 'Sữa tươi', stock: 5000 },
+        { ingredient_id: 'ing-oolong', name: 'Trà Oolong', stock: 500 },
+      ];
+    });
     mockTx.order.create.mockResolvedValue({
       orderId: 'order-1',
       status: OrderStatus.PENDING,
@@ -149,10 +160,18 @@ describe('OrdersService', () => {
   it('should apply valid promotion code and loyalty points redemption', async () => {
     mockTx.user.findUnique.mockResolvedValue({ userId: 'user-1' });
     mockTx.product.findMany.mockResolvedValue([sampleProduct]);
-    mockTx.$queryRaw.mockResolvedValue([
-      { ingredient_id: 'ing-milk', name: 'Sữa tươi', stock: 5000 },
-      { ingredient_id: 'ing-oolong', name: 'Trà Oolong', stock: 500 },
-    ]);
+    mockTx.$queryRaw.mockImplementation(async (query: any) => {
+      const sqlText = query?.strings ? query.strings.join(' ') : String(query);
+      if (sqlText.includes('from toppings') || sqlText.includes('FROM toppings')) {
+        return [
+          { topping_id: 'top-1', name: 'Trân châu đen', stock: 100 },
+        ];
+      }
+      return [
+        { ingredient_id: 'ing-milk', name: 'Sữa tươi', stock: 5000 },
+        { ingredient_id: 'ing-oolong', name: 'Trà Oolong', stock: 500 },
+      ];
+    });
     mockTx.promotion.findUnique.mockResolvedValue({
       promotionId: 'promo-1',
       promotionCode: 'BREWLITE10',
@@ -206,10 +225,18 @@ describe('OrdersService', () => {
   it('should throw BadRequestException when subtotal is below promotion minimumOrderAmount', async () => {
     mockTx.user.findUnique.mockResolvedValue({ userId: 'user-1' });
     mockTx.product.findMany.mockResolvedValue([sampleProduct]);
-    mockTx.$queryRaw.mockResolvedValue([
-      { ingredient_id: 'ing-milk', name: 'Sữa tươi', stock: 5000 },
-      { ingredient_id: 'ing-oolong', name: 'Trà Oolong', stock: 500 },
-    ]);
+    mockTx.$queryRaw.mockImplementation(async (query: any) => {
+      const sqlText = query?.strings ? query.strings.join(' ') : String(query);
+      if (sqlText.includes('from toppings') || sqlText.includes('FROM toppings')) {
+        return [
+          { topping_id: 'top-1', name: 'Trân châu đen', stock: 100 },
+        ];
+      }
+      return [
+        { ingredient_id: 'ing-milk', name: 'Sữa tươi', stock: 5000 },
+        { ingredient_id: 'ing-oolong', name: 'Trà Oolong', stock: 500 },
+      ];
+    });
     mockTx.promotion.findUnique.mockResolvedValue({
       promotionId: 'promo-2',
       promotionCode: 'GIAM15K',
