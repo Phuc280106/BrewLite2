@@ -9,7 +9,6 @@ import {
   Landmark,
   Loader2,
   Lock,
-  QrCode,
   User,
   CreditCard,
   Wallet,
@@ -40,15 +39,6 @@ const VNPAY_OPTIONS: VnpayOption[] = [
     detail: 'Tự chọn phương thức tại cổng thanh toán',
     detailClass: 'text-[#2D7A4D] font-semibold',
     icon: Wallet,
-  },
-  {
-    id: 'VNPAY_QR',
-    bankCode: 'VNPAYQR',
-    title: 'VNPAY-QR',
-    subtitle: '(Quét mã QR)',
-    detail: 'Ứng dụng ngân hàng & ví điện tử',
-    detailClass: 'text-stone-500',
-    icon: QrCode,
   },
   {
     id: 'VNPAY_ATM',
