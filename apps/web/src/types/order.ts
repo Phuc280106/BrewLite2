@@ -33,6 +33,7 @@ export interface OrderItemReceipt {
   quantity: number;
   sugarLevel?: string;
   iceLevel?: string;
+  note?: string | null;
   size?: OrderItemSize | null;
   toppings?: OrderItemTopping[];
   product?: {
@@ -74,6 +75,7 @@ export interface OrderRecord {
   userId: string;
   promotionId?: string | null;
   status: OrderStatus;
+  pickupMethod?: 'TAKEAWAY' | 'DINE_IN' | string;
   totalAmount: number | string;
   discountAmount: number | string;
   pointsRedeemed: number;

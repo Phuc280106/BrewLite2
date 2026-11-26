@@ -1,11 +1,16 @@
 import { existsSync } from 'fs';
+import { join } from 'path';
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 
-if (existsSync('.env') && typeof process.loadEnvFile === 'function') {
-  process.loadEnvFile('.env');
+// Nạp .env theo thứ tự: apps/api/.env rồi tới .env ở thư mục gốc monorepo (nơi .env.example hướng dẫn tạo).
+// process.loadEnvFile không ghi đè biến đã có nên file nạp trước được ưu tiên.
+for (const envPath of ['.env', join(__dirname, '..', '..', '..', '.env')]) {
+  if (existsSync(envPath)) {
+    process.loadEnvFile(envPath);
+  }
 }
 
 async function bootstrap() {

@@ -22,7 +22,7 @@ export interface OrderItemDto {
 export interface OrderPaymentDto {
   paymentId: string;
   status: 'SUCCESS' | 'FAILED';
-  paymentMethod: 'MOCK_CARD' | 'MOCK_WALLET' | string;
+  paymentMethod: 'VNPAY' | string;
   transactionId: string | null;
 }
 
