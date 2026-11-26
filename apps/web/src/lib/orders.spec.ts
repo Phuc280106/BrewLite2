@@ -100,4 +100,14 @@ describe('Order History & Receipt helpers (FR-07 & FR-08)', () => {
     expect(preparingMeta.cancelHint).toBe('Đơn đang pha chế, không thể hủy.');
     expect(formatPaymentMethod('VNPAY')).toBe('Cổng VNPay (Sandbox)');
   });
+
+  it('rejects fetchBaristaQueue without token', async () => {
+    const { fetchBaristaQueue } = await import('./orders');
+    await expect(fetchBaristaQueue()).rejects.toThrow('Vui lòng đăng nhập với tài khoản Barista');
+  });
+
+  it('rejects updateOrderStatusByBarista without token', async () => {
+    const { updateOrderStatusByBarista } = await import('./orders');
+    await expect(updateOrderStatusByBarista('BL-8921', 'PREPARING')).rejects.toThrow('Vui lòng đăng nhập');
+  });
 });
