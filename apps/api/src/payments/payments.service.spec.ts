@@ -114,7 +114,7 @@ describe('PaymentsService (VNPay Sandbox)', () => {
       ['không tồn tại', null],
       ['của người khác', { ...pendingOrder, userId: 'other' }],
       ['đã CANCELLED', { ...pendingOrder, status: OrderStatus.CANCELLED }],
-      ['đã thanh toán', { ...pendingOrder, status: OrderStatus.PREPARING }],
+      ['đã thanh toán', { ...pendingOrder, status: OrderStatus.PAID }],
       ['quá 15 phút', { ...pendingOrder, createdAt: new Date(Date.now() - 16 * 60 * 1000) }],
     ])('đơn %s: ném InvalidOrderException, không sinh URL', async (_label, order) => {
       mockPrisma.order.findUnique.mockResolvedValue(order);
@@ -135,7 +135,7 @@ describe('PaymentsService (VNPay Sandbox)', () => {
       expect(mockPrisma.order.findUnique).not.toHaveBeenCalled();
     });
 
-    it('thành công: lưu Payment SUCCESS (VNPAY) và chuyển đơn PENDING -> PREPARING', async () => {
+    it('thành công: lưu Payment SUCCESS (VNPAY) và chuyển đơn PENDING -> PAID', async () => {
       mockVnpay.verifyReturn.mockReturnValue(okReturn);
       mockPrisma.order.findUnique.mockResolvedValue(pendingOrder);
       mockTx.order.updateMany.mockResolvedValue({ count: 1 });
@@ -144,7 +144,7 @@ describe('PaymentsService (VNPay Sandbox)', () => {
       const res = await service.handleVnpayReturn({});
 
       expect(mockTx.order.updateMany).toHaveBeenCalledWith(
-        expect.objectContaining({ data: { status: OrderStatus.PREPARING } }),
+        expect.objectContaining({ data: { status: OrderStatus.PAID } }),
       );
       expect(mockTx.payment.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
@@ -157,7 +157,7 @@ describe('PaymentsService (VNPay Sandbox)', () => {
       expect(res).toMatchObject({
         success: true,
         status: 'SUCCESS',
-        orderStatus: 'PREPARING',
+        orderStatus: 'PAID',
         idempotentReplay: false,
       });
     });
@@ -198,7 +198,7 @@ describe('PaymentsService (VNPay Sandbox)', () => {
       mockVnpay.verifyReturn.mockReturnValue(okReturn);
       mockPrisma.payment.findFirst.mockResolvedValue({
         ...successPayment,
-        order: { status: OrderStatus.PREPARING, loyaltyTransactions: [{ pointsAmount: 10 }] },
+        order: { status: OrderStatus.PAID, loyaltyTransactions: [{ pointsAmount: 10 }] },
       });
 
       const res = await service.handleVnpayReturn({});
@@ -231,7 +231,7 @@ describe('PaymentsService (VNPay Sandbox)', () => {
       expect(mockPrisma.payment.create).not.toHaveBeenCalled();
     });
 
-    it('VNPay báo thất bại (vd. 51): lưu Payment FAILED, đơn GIỮ PENDING', async () => {
+    it('VNPay báo thất bại (vd. 51): lưu Payment FAILED, chuyển đơn sang PAYMENT_FAILED', async () => {
       mockVnpay.verifyReturn.mockReturnValue({
         ...okReturn,
         isSuccess: false,
@@ -239,21 +239,25 @@ describe('PaymentsService (VNPay Sandbox)', () => {
         message: 'Tài khoản không đủ số dư để thực hiện giao dịch.',
       });
       mockPrisma.order.findUnique.mockResolvedValue(pendingOrder);
-      mockPrisma.payment.create.mockResolvedValue({
+      mockTx.payment.create.mockResolvedValue({
         ...successPayment,
         status: PaymentStatus.FAILED,
       });
+      mockTx.order.updateMany.mockResolvedValue({ count: 1 });
 
       const res = await service.handleVnpayReturn({});
 
-      expect(mockPrisma.payment.create).toHaveBeenCalledWith({
+      expect(mockTx.payment.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
           status: PaymentStatus.FAILED,
           paymentMethod: 'VNPAY',
           idempotencyKey: KEY,
         }),
       });
-      expect(mockTx.order.updateMany).not.toHaveBeenCalled();
+      expect(mockTx.order.updateMany).toHaveBeenCalledWith({
+        where: { orderId: 'order-1', status: OrderStatus.PENDING },
+        data: { status: OrderStatus.PAYMENT_FAILED },
+      });
       expect(res).toMatchObject({
         success: false,
         orderId: 'order-1',
@@ -262,7 +266,7 @@ describe('PaymentsService (VNPay Sandbox)', () => {
       });
     });
 
-    it('khách bấm Hủy trên VNPay (24): lưu Payment FAILED, đơn vẫn PENDING (không tự hủy đơn)', async () => {
+    it('khách bấm Hủy trên VNPay (24): lưu Payment FAILED, chuyển đơn sang PAYMENT_FAILED', async () => {
       mockVnpay.verifyReturn.mockReturnValue({
         ...okReturn,
         isSuccess: false,
@@ -270,15 +274,19 @@ describe('PaymentsService (VNPay Sandbox)', () => {
         message: 'Khách hàng hủy giao dịch thanh toán.',
       });
       mockPrisma.order.findUnique.mockResolvedValue(pendingOrder);
-      mockPrisma.payment.create.mockResolvedValue({
+      mockTx.payment.create.mockResolvedValue({
         ...successPayment,
         status: PaymentStatus.FAILED,
       });
+      mockTx.order.updateMany.mockResolvedValue({ count: 1 });
 
       const res = await service.handleVnpayReturn({});
 
       expect(res).toMatchObject({ success: false, responseCode: '24' });
-      expect(mockTx.order.updateMany).not.toHaveBeenCalled();
+      expect(mockTx.order.updateMany).toHaveBeenCalledWith({
+        where: { orderId: 'order-1', status: OrderStatus.PENDING },
+        data: { status: OrderStatus.PAYMENT_FAILED },
+      });
     });
 
     it('số tiền VNPay không khớp đơn: từ chối, không ghi gì', async () => {
@@ -316,7 +324,7 @@ describe('PaymentsService (VNPay Sandbox)', () => {
       mockTx.payment.create.mockRejectedValue(p2002());
       mockPrisma.payment.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce({
         ...successPayment,
-        order: { status: OrderStatus.PREPARING, loyaltyTransactions: [{ pointsAmount: 10 }] },
+        order: { status: OrderStatus.PAID, loyaltyTransactions: [{ pointsAmount: 10 }] },
       });
 
       const res = await service.handleVnpayReturn({});

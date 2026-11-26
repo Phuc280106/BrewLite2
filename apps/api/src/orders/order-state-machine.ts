@@ -22,7 +22,7 @@ export const VALID_ORDER_TRANSITIONS: Record<OrderStatus, readonly OrderStatus[]
   [OrderStatus.READY]: [OrderStatus.COMPLETED],
   [OrderStatus.COMPLETED]: [],
   [OrderStatus.CANCELLED]: [],
-  [OrderStatus.PAYMENT_FAILED]: [OrderStatus.CANCELLED],
+  [OrderStatus.PAYMENT_FAILED]: [OrderStatus.PENDING, OrderStatus.CANCELLED],
 };
 
 /**
