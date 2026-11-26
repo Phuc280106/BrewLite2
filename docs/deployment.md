@@ -73,3 +73,37 @@ Tuyệt đối không lưu file `.env` trong Git (`.gitignore`). Các biến mô
 ### 4.3. Health Check & Logging trên Production
 * **Health Check (`GET /api/v1/health`):** Render định kỳ gọi endpoint này mỗi 30 giây và ngay sau mỗi lần deploy mới để kiểm tra trạng thái kết nối Database (`{ "status": "ok", "database": "up", "timestamp": "..." }`). Nếu health check thất bại, Render tự động giữ nguyên container phiên bản cũ (Zero-downtime Rollback).
 * **Logging (`Stdout/Stderr Stream`):** Mọi truy vấn lỗi, lịch sử khóa tồn kho và giao dịch thanh toán đều được NestJS xuất ra luồng chuẩn để Render Log Stream thu thập và phục vụ kiểm toán (Audit).
+
+---
+
+## 5. Hướng dẫn Triển khai Thực tế lên Cloud HTTPS (Task 5.4 – Vercel + Render + Private PostgreSQL)
+
+### 5.1. Bước 1 – Triển khai Backend API & PostgreSQL không công khai trên Render
+Mã nguồn đã cấu hình sẵn tệp Blueprint [`render.yaml`](../render.yaml) và Docker tại [`apps/api/Dockerfile`](../apps/api/Dockerfile):
+1. Push nhánh code đã merge lên GitHub (`Phuc280106/BrewLite2`).
+2. Đăng nhập [Render Dashboard](https://dashboard.render.com/) $\rightarrow$ **New +** $\rightarrow$ **Blueprint** $\rightarrow$ chọn repository `BrewLite2`.
+3. Render sẽ tự động tạo 2 tài nguyên từ `render.yaml`:
+   * **`brewlite-db` (PostgreSQL):** Đặt `ipAllowList: []` nên **cơ sở dữ liệu chỉ truy cập được nội bộ trong mạng Render (Private Network), tuyệt đối không public ra Internet**.
+   * **`brewlite-api` (Web Service Docker):** Tự động build từ `apps/api/Dockerfile`, kết nối `DATABASE_URL` nội bộ từ `brewlite-db`, tự động chạy `prisma db push`, nạp dữ liệu mẫu ở lần khởi chạy đầu tiên (chỉ seed khi bảng `products` còn trống), lắng nghe cổng `0.0.0.0:$PORT` và kiểm tra sức khỏe tạm qua `GET /api/v1/promotions` *(có thể chuyển sang `/api/v1/health` sau khi PR health check của Hiệp merge)*.
+4. Lưu lại URL HTTPS của Backend sau khi Render deploy xong (ví dụ: `https://brewlite-api.onrender.com`).
+
+### 5.2. Bước 2 – Triển khai Frontend Next.js lên Vercel
+1. Đăng nhập [Vercel Dashboard](https://vercel.com/) $\rightarrow$ **Add New...** $\rightarrow$ **Project** $\rightarrow$ Import repository `BrewLite2`.
+2. Cấu hình **Root Directory:** chọn `apps/web` (Framework Preset: `Next.js`).
+3. Thêm biến môi trường (**Environment Variables**):
+   * `NEXT_PUBLIC_API_URL` = `https://<render-api-domain>/api/v1` (URL ở Bước 1 kèm hậu tố `/api/v1`).
+   * `NEXT_PUBLIC_APP_NAME` = `BrewLite`
+4. Nhấn **Deploy** và lưu lại URL HTTPS của Frontend (ví dụ: `https://brewlite.vercel.app`).
+
+### 5.3. Bước 3 – Khóa CORS & Kiểm thử Khói (Smoke Test) trên Production
+1. Quay lại **Render Dashboard** $\rightarrow$ dịch vụ `brewlite-api` $\rightarrow$ **Environment** $\rightarrow$ đặt giá trị cho `CORS_ORIGIN` bằng đúng domain Vercel vừa tạo (ví dụ: `https://brewlite.vercel.app`, có thể ngăn cách nhiều domain bằng dấu phẩy). Render sẽ tự restart dịch vụ.
+2. Kiểm tra nhanh các endpoint công khai qua HTTPS:
+   * `GET https://<render-api-domain>/api/v1/products` $\rightarrow$ trả về 10 món nước đã seed.
+   * `GET https://<render-api-domain>/api/v1/promotions` $\rightarrow$ trả về danh sách mã khuyến mãi động (`BREWLITE10`, `GIAM15K`) từ PostgreSQL.
+   * *(Sau khi PR `GET /api/v1/health` của Hiệp merge, có thể kiểm tra thêm endpoint health check).*
+3. Mở domain Vercel trên trình duyệt điện thoại & máy tính, đi hết luồng End-to-End (`Menu` $\rightarrow$ `Chi tiết món` $\rightarrow$ `Giỏ hàng & Khuyến mãi` $\rightarrow$ `Đặt đơn` $\rightarrow$ `Thanh toán` $\rightarrow$ `Biên nhận & Lịch sử đơn`) để quay video demo và nộp bài.
+
+### 5.4. Danh sách URL Production đã triển khai *(cập nhật sau khi bấm Deploy)*
+* **Frontend Web (Vercel HTTPS):** `_(Cập nhật URL Vercel tại đây sau khi deploy)_`
+* **Backend API (Render HTTPS):** `_(Cập nhật URL Render tại đây sau khi deploy)_`
+* **Database (Render PostgreSQL):** `brewlite-db` (Internal Private Network Only — `ipAllowList: []`)

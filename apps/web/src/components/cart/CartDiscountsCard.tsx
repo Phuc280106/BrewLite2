@@ -3,14 +3,17 @@ import Link from 'next/link';
 import { AuthUser } from '@/types/auth';
 import { ActionResult, PromotionRule } from '@/types/cart';
 import {
-  AVAILABLE_PROMOTIONS,
   formatVND,
   LOYALTY_REDEEM_RATE,
 } from '@/lib/cartPricing';
-import { Ticket, Coins, CheckCircle2, X, AlertCircle } from 'lucide-react';
+import { Ticket, Coins, CheckCircle2, X, AlertCircle, Loader2, RefreshCw } from 'lucide-react';
 
 interface CartDiscountsCardProps {
   subtotal: number;
+  availablePromotions: PromotionRule[];
+  isLoadingPromotions?: boolean;
+  promotionsError?: string | null;
+  onRetryPromotions?: () => void;
   appliedPromotion: PromotionRule | null;
   promotionDiscount: number;
   pointsRedeemed: number;
@@ -24,6 +27,10 @@ interface CartDiscountsCardProps {
 
 export const CartDiscountsCard: React.FC<CartDiscountsCardProps> = ({
   subtotal,
+  availablePromotions,
+  isLoadingPromotions = false,
+  promotionsError = null,
+  onRetryPromotions,
   appliedPromotion,
   promotionDiscount,
   pointsRedeemed,
@@ -128,26 +135,54 @@ export const CartDiscountsCard: React.FC<CartDiscountsCardProps> = ({
               </button>
             </div>
 
-            {/* Gợi ý nhanh 2 mã khuyến mãi từ hệ thống */}
-            <div className="mt-2.5 flex flex-wrap gap-2">
-              {AVAILABLE_PROMOTIONS.map((promo) => {
-                const eligible = subtotal >= promo.minimumOrderAmount;
-                return (
-                  <button
-                    key={promo.promotionCode}
-                    type="button"
-                    onClick={() => handleApplyPromo(promo.promotionCode)}
-                    className={`text-[11px] px-2.5 py-1.5 rounded-lg border transition cursor-pointer ${
-                      eligible
-                        ? 'border-amber-300 bg-[#FFF8ED] text-[#9A4E04] hover:bg-amber-100/70 font-semibold'
-                        : 'border-stone-200 bg-stone-50 text-stone-400'
-                    }`}
-                    title={promo.description}
-                  >
-                    {promo.promotionCode} • {promo.description}
-                  </button>
-                );
-              })}
+            {/* Danh sách mã khuyến mãi lấy động từ cơ sở dữ liệu */}
+            <div className="mt-2.5">
+              {isLoadingPromotions ? (
+                <div className="flex items-center gap-2 text-xs text-stone-500 py-1">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-[#D97706]" />
+                  <span>Đang tải mã khuyến mãi...</span>
+                </div>
+              ) : promotionsError ? (
+                <div className="rounded-xl bg-rose-50 border border-rose-200 px-3 py-2 flex items-center justify-between gap-2 text-xs text-rose-700">
+                  <span>{promotionsError}</span>
+                  {onRetryPromotions && (
+                    <button
+                      type="button"
+                      onClick={onRetryPromotions}
+                      className="shrink-0 font-bold text-[#3D2615] hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <RefreshCw className="w-3 h-3" />
+                      <span>Thử lại</span>
+                    </button>
+                  )}
+                </div>
+              ) : availablePromotions.length === 0 ? (
+                <p className="text-xs text-stone-500 py-1">
+                  Hiện chưa có mã khuyến mãi nào đang áp dụng.
+                </p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {availablePromotions.map((promo) => {
+                    const eligible = subtotal >= promo.minimumOrderAmount;
+                    return (
+                      <button
+                        key={promo.promotionCode}
+                        type="button"
+                        onClick={() => handleApplyPromo(promo.promotionCode)}
+                        className={`text-[11px] px-2.5 py-1.5 rounded-lg border transition cursor-pointer ${
+                          eligible
+                            ? 'border-amber-300 bg-[#FFF8ED] text-[#9A4E04] hover:bg-amber-100/70 font-semibold'
+                            : 'border-stone-200 bg-stone-50 text-stone-400'
+                        }`}
+                        title={promo.description}
+                      >
+                        {promo.promotionCode}
+                        {promo.description ? ` • ${promo.description}` : ''}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </>
         )}
