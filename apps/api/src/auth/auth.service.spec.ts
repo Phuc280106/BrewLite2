@@ -174,6 +174,22 @@ describe('AuthService', () => {
       });
     });
 
+    it('should normalize uppercase email before querying user on login', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(mockDbUser);
+      jest.spyOn(bcrypt, 'compare').mockImplementation(async () => true);
+      (jwtService.signAsync as jest.Mock).mockResolvedValue('mock-access-token-xyz');
+
+      const result = await service.login({
+        email: 'NguyenVanA@GMAIL.COM',
+        password: loginDto.password,
+      });
+
+      expect(mockPrisma.user.findUnique).toHaveBeenCalledWith({
+        where: { email: 'nguyenvana@gmail.com' },
+      });
+      expect(result.accessToken).toBe('mock-access-token-xyz');
+    });
+
     it('should throw UnauthorizedException if user does not exist (AC-04.4)', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(null);
 
