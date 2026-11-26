@@ -107,11 +107,7 @@ export function getOrderStepIndex(status: OrderStatus): number {
  * Đơn đã sang PREPARING, READY hoặc COMPLETED không thể hủy.
  */
 export function canCancelOrder(status: OrderStatus): boolean {
-  return (
-    status === 'PENDING' ||
-    status === 'PAID' ||
-    status === 'PAYMENT_FAILED'
-  );
+  return status === 'PENDING' || status === 'PAYMENT_FAILED';
 }
 
 /**

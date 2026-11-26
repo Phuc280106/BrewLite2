@@ -50,6 +50,12 @@ describe('Order State Machine & Status Updates (Tuấn Thành - Module 6)', () =
         ).not.toThrow();
       });
 
+      it('should allow PAYMENT_FAILED -> PENDING (Thử thanh toán lại)', () => {
+        expect(() =>
+          assertTransition(OrderStatus.PAYMENT_FAILED, OrderStatus.PENDING),
+        ).not.toThrow();
+      });
+
       it('should allow PENDING -> PAID (Khách thanh toán thành công)', () => {
         expect(() =>
           assertTransition(OrderStatus.PENDING, OrderStatus.PAID),
@@ -242,10 +248,53 @@ describe('Order State Machine & Status Updates (Tuấn Thành - Module 6)', () =
       expect(mockTx.order.update).not.toHaveBeenCalled();
     });
 
-    it('should allow customer to cancel their own PAID order and refund ingredients', async () => {
+    it('should forbid customer from cancelling their own PAID order', async () => {
+      mockTx.order.findUnique.mockResolvedValue(sampleOrder);
+
+      await expect(
+        service.updateOrderStatus(
+          'order-101',
+          OrderStatus.CANCELLED,
+          'customer-1',
+          'CUSTOMER',
+        ),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(mockTx.order.update).not.toHaveBeenCalled();
+    });
+
+    it('should allow BARISTA to cancel a PAID order and refund ingredients', async () => {
       mockTx.order.findUnique.mockResolvedValue(sampleOrder);
       mockTx.order.update.mockResolvedValue({
         ...sampleOrder,
+        status: OrderStatus.CANCELLED,
+      });
+
+      const result = await service.updateOrderStatus(
+        'order-101',
+        OrderStatus.CANCELLED,
+        'barista-1',
+        'BARISTA',
+      );
+
+      expect(mockTx.ingredient.update).toHaveBeenCalledWith({
+        where: { ingredientId: 'ing-tea' },
+        data: { stock: { increment: 20 }, version: { increment: 1 } },
+      });
+      expect(mockTx.order.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { orderId: 'order-101' },
+          data: { status: OrderStatus.CANCELLED },
+        }),
+      );
+      expect(result.status).toBe(OrderStatus.CANCELLED);
+    });
+
+    it('should allow customer to cancel their own PENDING or PAYMENT_FAILED order and refund ingredients', async () => {
+      const pendingOrder = { ...sampleOrder, status: OrderStatus.PAYMENT_FAILED };
+      mockTx.order.findUnique.mockResolvedValue(pendingOrder);
+      mockTx.order.update.mockResolvedValue({
+        ...pendingOrder,
         status: OrderStatus.CANCELLED,
       });
 
@@ -260,12 +309,6 @@ describe('Order State Machine & Status Updates (Tuấn Thành - Module 6)', () =
         where: { ingredientId: 'ing-tea' },
         data: { stock: { increment: 20 }, version: { increment: 1 } },
       });
-      expect(mockTx.order.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { orderId: 'order-101' },
-          data: { status: OrderStatus.CANCELLED },
-        }),
-      );
       expect(result.status).toBe(OrderStatus.CANCELLED);
     });
 

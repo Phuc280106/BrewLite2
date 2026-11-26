@@ -3,6 +3,7 @@ import { Topping } from '@/types';
 
 export const CART_STORAGE_KEY = 'brewlite-cart';
 export const LOYALTY_REDEEM_RATE = 1000;
+export const MIN_ORDER_PAYABLE_AMOUNT = 5000;
 
 export function toNumeric(value: unknown): number {
   const num = Number(value);
@@ -125,18 +126,30 @@ export function calculateCartTotals(params: {
     subtotal,
     params.appliedPromotion,
   );
-  const afterPromo = Math.max(0, subtotal - promotionDiscount);
+  const maxPromoDiscount =
+    subtotal > MIN_ORDER_PAYABLE_AMOUNT
+      ? subtotal - MIN_ORDER_PAYABLE_AMOUNT
+      : 0;
+  const cappedPromotionDiscount = Math.min(promotionDiscount, maxPromoDiscount);
+  const afterPromo = Math.max(0, subtotal - cappedPromotionDiscount);
 
+  const maxLoyaltyDiscount =
+    afterPromo > MIN_ORDER_PAYABLE_AMOUNT
+      ? afterPromo - MIN_ORDER_PAYABLE_AMOUNT
+      : 0;
   const safePoints = Math.max(0, Math.floor(toNumeric(params.pointsRedeemed)));
-  const loyaltyDiscount = Math.min(afterPromo, safePoints * LOYALTY_REDEEM_RATE);
+  const loyaltyDiscount = Math.min(
+    maxLoyaltyDiscount,
+    safePoints * LOYALTY_REDEEM_RATE,
+  );
 
-  const totalDiscount = promotionDiscount + loyaltyDiscount;
+  const totalDiscount = cappedPromotionDiscount + loyaltyDiscount;
   const grandTotal = Math.max(0, subtotal - totalDiscount);
 
   return {
     totalItems,
     subtotal,
-    promotionDiscount,
+    promotionDiscount: cappedPromotionDiscount,
     loyaltyDiscount,
     totalDiscount,
     grandTotal,

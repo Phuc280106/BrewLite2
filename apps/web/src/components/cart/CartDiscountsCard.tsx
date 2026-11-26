@@ -5,6 +5,7 @@ import { ActionResult, PromotionRule } from '@/types/cart';
 import {
   formatVND,
   LOYALTY_REDEEM_RATE,
+  MIN_ORDER_PAYABLE_AMOUNT,
 } from '@/lib/cartPricing';
 import { Ticket, Coins, CheckCircle2, X, AlertCircle, Loader2, RefreshCw } from 'lucide-react';
 
@@ -51,9 +52,10 @@ export const CartDiscountsCard: React.FC<CartDiscountsCardProps> = ({
 
   const userPoints = currentUser?.points ?? 0;
   const afterPromo = Math.max(0, subtotal - promotionDiscount);
+  const maxDiscountable = Math.max(0, afterPromo - MIN_ORDER_PAYABLE_AMOUNT);
   const maxUsablePoints = Math.min(
     userPoints,
-    Math.floor(afterPromo / LOYALTY_REDEEM_RATE),
+    Math.floor(maxDiscountable / LOYALTY_REDEEM_RATE),
   );
 
   const handleApplyPromo = (codeToApply: string) => {

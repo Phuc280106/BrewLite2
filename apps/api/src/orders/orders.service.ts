@@ -138,7 +138,10 @@ export class OrdersService {
 
     // timDonChoThanhToanQuaHan
     const expiredOrders = await this.prisma.order.findMany({
-      where: { status: OrderStatus.PENDING, createdAt: { lt: threshold } },
+      where: {
+        status: { in: [OrderStatus.PENDING, OrderStatus.PAYMENT_FAILED] },
+        createdAt: { lt: threshold },
+      },
       select: { orderId: true },
     });
 
@@ -157,9 +160,12 @@ export class OrdersService {
   private async cancelAndRestoreStock(orderId: string): Promise<boolean> {
     // batDauGiaoDich ... xacNhanGiaoDich (BEGIN ... COMMIT)
     return this.prisma.$transaction(async (tx) => {
-      // Chốt trạng thái trước: nếu khách vừa thanh toán xong (đã PREPARING) thì bỏ qua đơn này
+      // Chốt trạng thái trước: chỉ hủy đơn còn PENDING hoặc PAYMENT_FAILED
       const updated = await tx.order.updateMany({
-        where: { orderId, status: OrderStatus.PENDING },
+        where: {
+          orderId,
+          status: { in: [OrderStatus.PENDING, OrderStatus.PAYMENT_FAILED] },
+        },
         data: { status: OrderStatus.CANCELLED },
       });
       if (updated.count !== 1) return false;
@@ -483,6 +489,13 @@ export class OrdersService {
         throw new ForbiddenException('Bạn không có quyền hủy đơn hàng này');
       }
 
+      // Khách hàng chỉ được tự hủy khi đơn đang PENDING hoặc PAYMENT_FAILED (không được tự hủy đơn đã PAID)
+      if (order.status === OrderStatus.PAID) {
+        throw new ForbiddenException(
+          'Khách hàng không thể tự hủy đơn đã thanh toán. Vui lòng liên hệ nhân viên.',
+        );
+      }
+
       // Kiểm tra chuyển đổi sang CANCELLED qua State Machine (ném 400 nếu đơn đang PREPARING/READY/COMPLETED)
       assertTransition(order.status, OrderStatus.CANCELLED);
 
@@ -567,6 +580,11 @@ export class OrdersService {
         if (newStatus !== OrderStatus.CANCELLED) {
           throw new ForbiddenException(
             'Khách hàng chỉ có thể hủy đơn, không có quyền chuyển tiến trình pha chế/hoàn tất.',
+          );
+        }
+        if (order.status === OrderStatus.PAID) {
+          throw new ForbiddenException(
+            'Khách hàng không thể tự hủy đơn đã thanh toán. Vui lòng liên hệ nhân viên.',
           );
         }
       }
@@ -850,13 +868,17 @@ export class OrdersService {
       );
     }
 
+    const minPayable = 5000;
+    const maxRedeemableVnd = Math.max(0, remainingAmount - minPayable);
     const redeemRate = Number(process.env.LOYALTY_REDEEM_RATE) || 1000;
-    const rawDiscount = pointsToRedeem * redeemRate;
+    const maxPointsAllowed = Math.floor(maxRedeemableVnd / redeemRate);
+    const actualPointsRedeemed = Math.min(pointsToRedeem, maxPointsAllowed);
+    const loyaltyDiscount = actualPointsRedeemed * redeemRate;
 
     return {
       loyaltyId: loyalty.loyaltyId,
-      pointsRedeemed: pointsToRedeem,
-      loyaltyDiscount: Math.min(remainingAmount, rawDiscount),
+      pointsRedeemed: actualPointsRedeemed,
+      loyaltyDiscount,
     };
   }
 }
