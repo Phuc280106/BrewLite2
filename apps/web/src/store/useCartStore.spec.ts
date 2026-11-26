@@ -1,11 +1,32 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Product, Size, Topping } from '@/types';
+import { PromotionRule } from '@/types/cart';
 import {
   calculateCartTotals,
   calculateItemUnitPrice,
   CART_STORAGE_KEY,
+  normalizePromotionRule,
 } from '@/lib/cartPricing';
 import { useCartStore } from './useCartStore';
+
+const samplePromotions: PromotionRule[] = [
+  {
+    promotionId: 'promo-1',
+    promotionCode: 'BREWLITE10',
+    description: 'Giảm 10% cho đơn từ 50.000đ',
+    minimumOrderAmount: 50000,
+    discountAmount: 0,
+    discountPercentage: 10,
+  },
+  {
+    promotionId: 'promo-2',
+    promotionCode: 'GIAM15K',
+    description: 'Giảm 15.000đ cho đơn từ 80.000đ',
+    minimumOrderAmount: 80000,
+    discountAmount: 15000,
+    discountPercentage: 0,
+  },
+];
 
 const sizeM: Size = { sizeId: 'size-m', name: 'M (Vừa)', priceAdjustment: 0 };
 const sizeL: Size = { sizeId: 'size-l', name: 'L (Lớn)', priceAdjustment: 8000 };
@@ -33,6 +54,7 @@ const saltedCoffee: Product = {
 describe('useCartStore & cartPricing (FR-03 / UNIT-T01)', () => {
   beforeEach(() => {
     useCartStore.getState().clearCart();
+    useCartStore.getState().setAvailablePromotions(samplePromotions);
     vi.restoreAllMocks();
   });
 
@@ -261,5 +283,56 @@ describe('useCartStore & cartPricing (FR-03 / UNIT-T01)', () => {
     expect(useCartStore.getState().items).toHaveLength(1);
     warnSpy.mockRestore();
     vi.unstubAllGlobals();
+  });
+
+  it('supports dynamic promotions fetched from API and clears stale applied codes when DB updates', () => {
+    const store = useCartStore.getState();
+
+    // Chuẩn hóa dữ liệu Prisma Decimal từ API /promotions
+    const normalizedSummer = normalizePromotionRule({
+      promotionId: 'promo-summer',
+      promotionCode: ' summer20 ',
+      description: 'Giảm 20% mùa hè',
+      minimumOrderAmount: '40000.00',
+      discountAmount: '0.00',
+      discountPercentage: 20,
+    });
+    expect(normalizedSummer).toEqual({
+      promotionId: 'promo-summer',
+      promotionCode: 'SUMMER20',
+      description: 'Giảm 20% mùa hè',
+      minimumOrderAmount: 40000,
+      discountAmount: 0,
+      discountPercentage: 20,
+    });
+    expect(normalizePromotionRule({ description: 'thiếu code' })).toBeNull();
+
+    store.setAvailablePromotions([normalizedSummer!]);
+    store.addItem({
+      product: oolongMilkTea,
+      size: sizeL,
+      sugar: '50%',
+      ice: '50% đá',
+      quantity: 1,
+    }); // 46.000đ
+
+    const applied = store.applyPromotion('summer20');
+    expect(applied.ok).toBe(true);
+    expect(
+      calculateCartTotals({
+        items: useCartStore.getState().items,
+        appliedPromotion: useCartStore.getState().appliedPromotion,
+        pointsRedeemed: 0,
+      }).promotionDiscount,
+    ).toBe(9200); // 20% của 46.000đ
+
+    // Khi DB không còn mã SUMMER20 -> tự động gỡ khỏi appliedPromotion
+    store.setAvailablePromotions(samplePromotions);
+    expect(useCartStore.getState().appliedPromotion).toBeNull();
+
+    // Khi danh sách mã từ API trống -> báo lỗi rõ ràng
+    store.setAvailablePromotions([]);
+    const emptyCatalogRes = store.applyPromotion('BREWLITE10');
+    expect(emptyCatalogRes.ok).toBe(false);
   });
 });

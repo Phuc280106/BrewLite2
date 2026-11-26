@@ -4,29 +4,39 @@ import { Topping } from '@/types';
 export const CART_STORAGE_KEY = 'brewlite-cart';
 export const LOYALTY_REDEEM_RATE = 1000;
 
-/**
- * Danh sách mã khuyến mãi khớp với dữ liệu seed trong apps/api/prisma/seed.ts
- */
-export const AVAILABLE_PROMOTIONS: PromotionRule[] = [
-  {
-    promotionCode: 'BREWLITE10',
-    description: 'Giảm 10% cho đơn từ 50.000đ',
-    minimumOrderAmount: 50000,
-    discountAmount: 0,
-    discountPercentage: 10,
-  },
-  {
-    promotionCode: 'GIAM15K',
-    description: 'Giảm 15.000đ cho đơn từ 80.000đ',
-    minimumOrderAmount: 80000,
-    discountAmount: 15000,
-    discountPercentage: 0,
-  },
-];
-
 export function toNumeric(value: unknown): number {
   const num = Number(value);
   return Number.isFinite(num) ? num : 0;
+}
+
+export function normalizePromotionRule(raw: unknown): PromotionRule | null {
+  if (!raw || typeof raw !== 'object') {
+    return null;
+  }
+
+  const record = raw as Record<string, unknown>;
+  const rawCode = typeof record.promotionCode === 'string' ? record.promotionCode.trim().toUpperCase() : '';
+  if (!rawCode) {
+    return null;
+  }
+
+  const promotionId =
+    typeof record.promotionId === 'string' && record.promotionId.trim() !== ''
+      ? record.promotionId.trim()
+      : undefined;
+  const description = typeof record.description === 'string' ? record.description.trim() : '';
+  const minimumOrderAmount = Math.max(0, toNumeric(record.minimumOrderAmount));
+  const discountAmount = Math.max(0, toNumeric(record.discountAmount));
+  const discountPercentage = Math.min(100, Math.max(0, toNumeric(record.discountPercentage)));
+
+  return {
+    ...(promotionId ? { promotionId } : {}),
+    promotionCode: rawCode,
+    description,
+    minimumOrderAmount,
+    discountAmount,
+    discountPercentage,
+  };
 }
 
 export function calculateItemUnitPrice(
@@ -67,9 +77,15 @@ export function buildCartItemId(params: {
   ].join('::');
 }
 
-export function findPromotionByCode(code: string): PromotionRule | undefined {
+export function findPromotionByCode(
+  code: string,
+  promotions: PromotionRule[],
+): PromotionRule | undefined {
   const normalized = code.trim().toUpperCase();
-  return AVAILABLE_PROMOTIONS.find((p) => p.promotionCode === normalized);
+  if (!normalized) {
+    return undefined;
+  }
+  return promotions.find((p) => p.promotionCode.trim().toUpperCase() === normalized);
 }
 
 export function calculatePromotionDiscount(

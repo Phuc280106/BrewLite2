@@ -2,54 +2,76 @@
 
 import React, { Suspense, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import {
   AlertCircle,
   ArrowLeft,
-  Check,
-  CreditCard,
+  Landmark,
   Loader2,
   Lock,
+  QrCode,
   StickyNote,
   User,
+  CreditCard,
   Wallet,
 } from 'lucide-react';
 import { AuthUser } from '@/types/auth';
-import { getAuthToken, onAuthStateChange, syncLoyaltyPoints } from '@/lib/auth';
+import { getAuthToken, onAuthStateChange } from '@/lib/auth';
 import { formatVND } from '@/lib/cartPricing';
 import { API_BASE, fetchOrder, OrderDto } from '@/lib/orderApi';
 
-type PaymentMethod = 'MOCK_CARD' | 'MOCK_WALLET';
 type FulfillmentMode = 'TAKEAWAY' | 'DINE_IN';
 
-const METHODS: {
-  value: PaymentMethod;
+interface VnpayOption {
+  id: string;
+  /** Mã tab mở sẵn trên VNPay; để trống để khách tự chọn tại cổng. */
+  bankCode?: string;
   title: string;
   subtitle: string;
   detail: string;
   detailClass: string;
   icon: typeof Wallet;
-}[] = [
+}
+
+const VNPAY_OPTIONS: VnpayOption[] = [
   {
-    value: 'MOCK_WALLET',
-    title: 'Ví điện tử Giả lập',
-    subtitle: '(Mock Wallet)',
-    detail: 'Thanh toán ngay',
+    id: 'VNPAY_ALL',
+    title: 'Cổng VNPay',
+    subtitle: '(Sandbox)',
+    detail: 'Tự chọn phương thức tại cổng thanh toán',
     detailClass: 'text-[#2D7A4D] font-semibold',
     icon: Wallet,
   },
   {
-    value: 'MOCK_CARD',
-    title: 'Thẻ ATM / Visa Mô phỏng',
-    subtitle: '(Mock Card)',
-    detail: '**** **** **** 4242',
+    id: 'VNPAY_QR',
+    bankCode: 'VNPAYQR',
+    title: 'VNPAY-QR',
+    subtitle: '(Quét mã QR)',
+    detail: 'Ứng dụng ngân hàng & ví điện tử',
+    detailClass: 'text-stone-500',
+    icon: QrCode,
+  },
+  {
+    id: 'VNPAY_ATM',
+    bankCode: 'VNBANK',
+    title: 'Thẻ ATM nội địa',
+    subtitle: '(Napas)',
+    detail: 'Tài khoản & thẻ ATM các ngân hàng nội địa',
+    detailClass: 'text-stone-500',
+    icon: Landmark,
+  },
+  {
+    id: 'VNPAY_INT',
+    bankCode: 'INTCARD',
+    title: 'Thẻ quốc tế',
+    subtitle: '(Visa / MasterCard / JCB)',
+    detail: 'Thẻ thanh toán quốc tế',
     detailClass: 'text-stone-500',
     icon: CreditCard,
   },
 ];
 
 function CheckoutContent() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const orderId = searchParams.get('orderId');
 
@@ -61,12 +83,9 @@ function CheckoutContent() {
   const [mode, setMode] = useState<FulfillmentMode>('TAKEAWAY');
   const [note, setNote] = useState('');
 
-  const [method, setMethod] = useState<PaymentMethod | null>(null);
-  const [idempotencyKey, setIdempotencyKey] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string>(VNPAY_OPTIONS[0].id);
   const [isPaying, setIsPaying] = useState(false);
   const [payError, setPayError] = useState<string | null>(null);
-  const [paidAmount, setPaidAmount] = useState<number | null>(null);
-  const [pointsEarned, setPointsEarned] = useState(0);
   const payingRef = useRef(false); // chặn bấm đúp trước khi state kịp cập nhật
 
   useEffect(() => onAuthStateChange(setUser), []);
@@ -87,17 +106,15 @@ function CheckoutContent() {
   const discount = order ? Number(order.discountAmount) : 0;
   const subtotal = total + discount;
 
-  // 1-2: selectMethod -> generateIdempotencyKey
-  const handleSelectMethod = (value: PaymentMethod) => {
+  const handleSelectMethod = (id: string) => {
     if (isPaying) return;
-    setMethod(value);
-    setIdempotencyKey(crypto.randomUUID());
+    setSelectedId(id);
     setPayError(null);
   };
 
-  // 3-5: onClickPay -> disablePayButton -> createPayment(orderId, method, key)
+  // Bấm thanh toán -> backend sinh URL VNPay Sandbox -> chuyển hướng khách sang cổng VNPay
   const handlePay = async () => {
-    if (!orderId || !method || !idempotencyKey || payingRef.current) return;
+    if (!orderId || payingRef.current) return;
 
     const token = getAuthToken();
     if (!token) {
@@ -105,42 +122,38 @@ function CheckoutContent() {
       return;
     }
 
+    const selected = VNPAY_OPTIONS.find((opt) => opt.id === selectedId) ?? VNPAY_OPTIONS[0];
+
     payingRef.current = true;
     setIsPaying(true);
     setPayError(null);
 
     try {
-      const response = await fetch(`${API_BASE}/payments`, {
+      const response = await fetch(`${API_BASE}/payments/initiate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
-          'Idempotency-Key': idempotencyKey,
         },
-        body: JSON.stringify({ orderId, method }),
+        body: JSON.stringify({ orderId, bankCode: selected.bankCode }),
       });
       const payload = await response.json().catch(() => ({}));
 
-      if (response.ok) {
-        setPointsEarned(Number(payload.pointsEarned ?? 0));
-        void syncLoyaltyPoints(); // cập nhật số điểm hiển thị ở trang chủ/giỏ hàng
-        setPaidAmount(Number(payload.amount ?? total));
-        return;
+      if (response.ok && payload.paymentUrl) {
+        window.location.href = payload.paymentUrl;
+        return; // giữ trạng thái "đang xử lý" trong lúc trình duyệt chuyển trang
       }
 
-      // showError, rồi sinh key mới để lượt thanh toán sau là một giao dịch mới
-      const message = Array.isArray(payload.message)
-        ? payload.message.join(', ')
-        : payload.message || 'Thanh toán không thành công. Vui lòng thử lại.';
-      setPayError(message);
-      setIdempotencyKey(crypto.randomUUID());
+      setPayError(
+        Array.isArray(payload.message)
+          ? payload.message.join(', ')
+          : payload.message || 'Không thể khởi tạo phiên thanh toán VNPay. Vui lòng thử lại.',
+      );
     } catch {
-      // Lỗi mạng: GIỮ NGUYÊN key để bấm lại là gửi lặp an toàn (server trả kết quả cũ, không trừ tiền 2 lần)
-      setPayError('Mất kết nối tới máy chủ. Bấm "Xác nhận Thanh toán" lại để thử tiếp, bạn sẽ không bị trừ tiền hai lần.');
-    } finally {
-      payingRef.current = false;
-      setIsPaying(false);
+      setPayError('Mất kết nối tới máy chủ. Vui lòng thử lại.');
     }
+    payingRef.current = false;
+    setIsPaying(false);
   };
 
   if (!orderId) {
@@ -169,7 +182,7 @@ function CheckoutContent() {
     return <div className="mx-5 mt-6 h-64 rounded-2xl bg-white border border-[#EDE7DF] animate-pulse" />;
   }
 
-  if (order.status !== 'PENDING' && paidAmount === null) {
+  if (order.status !== 'PENDING') {
     return (
       <div className="px-5 py-16 text-center space-y-4">
         <p className="text-stone-600 text-sm">
@@ -239,17 +252,17 @@ function CheckoutContent() {
         <section>
           <h2 className="font-bold text-[#3D2615] mb-2.5">Phương thức thanh toán</h2>
           <div role="radiogroup" className="space-y-3">
-            {METHODS.map(({ value, title, subtitle, detail, detailClass, icon: Icon }) => {
-              const selected = method === value;
+            {VNPAY_OPTIONS.map(({ id, title, subtitle, detail, detailClass, icon: Icon }) => {
+              const selected = selectedId === id;
               return (
                 <button
-                  key={value}
+                  key={id}
                   type="button"
                   role="radio"
                   aria-checked={selected}
                   disabled={isPaying}
-                  onClick={() => handleSelectMethod(value)}
-                  data-testid={`method-${value}`}
+                  onClick={() => handleSelectMethod(id)}
+                  data-testid={`method-${id}`}
                   className={`w-full min-h-[88px] rounded-2xl border p-3.5 flex items-center gap-3.5 text-left transition cursor-pointer disabled:cursor-not-allowed ${
                     selected ? 'border-[#D97706] bg-[#FFF4E2]' : 'border-[#EDE7DF] bg-white'
                   }`}
@@ -280,7 +293,7 @@ function CheckoutContent() {
 
           <div className="mt-3 rounded-2xl bg-[#E8F5EE] text-[#2D7A4D] p-3.5 flex items-start gap-2.5 text-sm">
             <Lock className="w-4 h-4 mt-0.5 shrink-0" />
-            <p>Giao dịch an toàn được bảo vệ bởi Idempotency Key. Không sợ bị trừ tiền trùng lặp khi mạng chậm.</p>
+            <p>Bạn sẽ được chuyển sang Cổng VNPay Sandbox để hoàn tất thanh toán an toàn. Kết quả giao dịch được xác minh bằng chữ ký số HMAC-SHA512.</p>
           </div>
         </section>
       </div>
@@ -310,7 +323,7 @@ function CheckoutContent() {
 
           <button
             type="button"
-            disabled={!method || isPaying}
+            disabled={isPaying}
             onClick={handlePay}
             data-testid="pay-button"
             className="w-full min-h-[52px] rounded-full bg-[#3D2615] hover:bg-[#2A190D] disabled:bg-stone-300 disabled:cursor-not-allowed text-white font-bold transition flex items-center justify-center gap-2 cursor-pointer"
@@ -318,10 +331,10 @@ function CheckoutContent() {
             {isPaying ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Đang xử lý thanh toán...</span>
+                <span>Đang kết nối Cổng VNPay...</span>
               </>
             ) : (
-              <span>Xác nhận Thanh toán {formatVND(total)}</span>
+              <span>Thanh toán qua VNPay {formatVND(total)}</span>
             )}
           </button>
           <p className="text-center text-xs text-stone-500">
@@ -330,41 +343,6 @@ function CheckoutContent() {
         </div>
       </div>
 
-      {/* Popup thanh toán mô phỏng thành công */}
-      {paidAmount !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-6">
-          <div
-            role="dialog"
-            aria-modal="true"
-            data-testid="payment-success-dialog"
-            className="w-full max-w-sm bg-[#FBF9F5] rounded-3xl px-6 py-8 text-center shadow-2xl"
-          >
-            <div className="w-16 h-16 rounded-full bg-[#E8F5EE] text-[#2D7A4D] flex items-center justify-center mx-auto">
-              <Check className="w-8 h-8" />
-            </div>
-            <h2 className="mt-4 text-2xl font-extrabold text-[#3D2615] leading-tight">
-              Thanh toán mô phỏng thành công
-            </h2>
-            <p className="mt-3 text-3xl font-extrabold text-[#3D2615]">{formatVND(paidAmount)}</p>
-            <p className="mt-3 text-sm text-stone-500">
-              Không có giao dịch tiền thật.
-              <br />
-              BrewLite đã nhận đơn hàng của bạn.
-            </p>
-            {pointsEarned > 0 && (
-              <p className="mt-2 text-sm font-bold text-[#2D7A4D]">Bạn được cộng +{pointsEarned} điểm thưởng</p>
-            )}
-            <button
-              type="button"
-              onClick={() => router.push(`/orders/${encodeURIComponent(orderId)}/receipt`)}
-              data-testid="view-receipt"
-              className="mt-6 w-full min-h-[52px] rounded-full bg-[#3D2615] hover:bg-[#2A190D] text-white font-bold transition cursor-pointer"
-            >
-              Xem biên nhận
-            </button>
-          </div>
-        </div>
-      )}
     </>
   );
 }

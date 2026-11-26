@@ -1,24 +1,20 @@
 import {
-  BadRequestException,
   Body,
   Controller,
-  Headers,
+  Get,
   HttpCode,
   HttpStatus,
   Post,
+  Query,
+  Req,
   UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
-import {
-  ApiBearerAuth,
-  ApiHeader,
-  ApiOperation,
-  ApiTags,
-} from '@nestjs/swagger';
-import { isUUID } from 'class-validator';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import type { Request } from 'express';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { ProcessPaymentDto } from './dto/process-payment.dto';
+import { InitiatePaymentDto } from './dto/initiate-payment.dto';
 import { PaymentsService } from './payments.service';
 
 interface JwtPayloadUser {
@@ -26,36 +22,47 @@ interface JwtPayloadUser {
   sub?: string;
 }
 
+/** vnp_IpAddr: bỏ tiền tố IPv4-mapped (::ffff:) và đổi ::1 về 127.0.0.1. */
+function resolveClientIp(req: Request): string {
+  const forwarded = (req.headers['x-forwarded-for'] as string | undefined)
+    ?.split(',')[0]
+    ?.trim();
+  const raw = forwarded || req.socket?.remoteAddress || '127.0.0.1';
+  if (raw === '::1') return '127.0.0.1';
+  return raw.replace(/^::ffff:/, '');
+}
+
 @ApiTags('Payments')
-@ApiBearerAuth('JWT-auth')
-@UseGuards(JwtAuthGuard)
 @Controller('payments')
 export class PaymentsController {
   constructor(private readonly paymentsService: PaymentsService) {}
 
-  // POST /api/v1/payments (FR-06: thanh toán mô phỏng & chống trùng lặp)
-  @Post()
+  // POST /api/v1/payments/initiate (FR-06: sinh URL thanh toán VNPay Sandbox)
+  @Post('initiate')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Thanh toán đơn hàng (mock) với Idempotency-Key' })
-  @ApiHeader({
-    name: 'Idempotency-Key',
-    required: true,
-    description: 'UUID v4 sinh ở client cho mỗi lượt thanh toán',
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({
+    summary: 'Khởi tạo phiên thanh toán VNPay Sandbox cho đơn PENDING (trả về paymentUrl)',
   })
-  processPayment(
+  initiatePayment(
     @CurrentUser() user: JwtPayloadUser,
-    @Headers('idempotency-key') idempotencyKey: string | undefined,
-    @Body() dto: ProcessPaymentDto,
+    @Body() dto: InitiatePaymentDto,
+    @Req() req: Request,
   ) {
     const userId = user?.userId || user?.sub;
     if (!userId) {
       throw new UnauthorizedException('Không xác định được người dùng từ JWT');
     }
-    if (!idempotencyKey || !isUUID(idempotencyKey, '4')) {
-      throw new BadRequestException(
-        'Thiếu hoặc sai định dạng header Idempotency-Key (UUID v4)',
-      );
-    }
-    return this.paymentsService.processPayment(userId, dto, idempotencyKey);
+    return this.paymentsService.initiatePayment(userId, dto, resolveClientIp(req));
+  }
+
+  // GET /api/v1/payments/vnpay/return (không cần JWT: được xác thực bằng chữ ký HMAC-SHA512 của VNPay)
+  @Get('vnpay/return')
+  @ApiOperation({
+    summary: 'Xác minh chữ ký & kết quả giao dịch khi VNPay redirect về ReturnUrl',
+  })
+  handleVnpayReturn(@Query() query: Record<string, string>) {
+    return this.paymentsService.handleVnpayReturn(query);
   }
 }

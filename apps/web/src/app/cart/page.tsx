@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { AuthUser } from '@/types/auth';
 import { CartItem } from '@/types/cart';
-import { getAuthToken, onAuthStateChange } from '@/lib/auth';
+import { getAuthToken, onAuthStateChange, syncLoyaltyPoints } from '@/lib/auth';
 import { calculateCartTotals, formatVND } from '@/lib/cartPricing';
+import { fetchPromotions } from '@/lib/promotionsApi';
 import { useCartStore } from '@/store/useCartStore';
 import { EmptyCart } from '@/components/cart/EmptyCart';
 import { CartItemRow } from '@/components/cart/CartItemRow';
@@ -15,7 +16,9 @@ import {
   ArrowLeft,
   CheckCircle2,
   Coffee,
+  CreditCard,
   Loader2,
+  ReceiptText,
   ShoppingCart,
   Trash2,
   AlertCircle,
@@ -52,12 +55,16 @@ export default function CartPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [createdOrder, setCreatedOrder] = useState<CreatedOrderSummary | null>(null);
+  const [isLoadingPromotions, setIsLoadingPromotions] = useState(true);
+  const [promotionsError, setPromotionsError] = useState<string | null>(null);
 
   const items = useCartStore((state) => state.items);
+  const availablePromotions = useCartStore((state) => state.availablePromotions);
   const appliedPromotion = useCartStore((state) => state.appliedPromotion);
   const pointsRedeemed = useCartStore((state) => state.pointsRedeemed);
   const hasHydrated = useCartStore((state) => state.hasHydrated);
 
+  const setAvailablePromotions = useCartStore((state) => state.setAvailablePromotions);
   const updateQuantity = useCartStore((state) => state.updateQuantity);
   const removeItem = useCartStore((state) => state.removeItem);
   const clearCart = useCartStore((state) => state.clearCart);
@@ -72,6 +79,37 @@ export default function CartPage() {
     });
     return () => unsub();
   }, []);
+
+  useEffect(() => {
+    if (currentUser?.userId) {
+      void syncLoyaltyPoints();
+    }
+  }, [currentUser?.userId]);
+
+  const loadPromotions = useCallback(
+    async (signal?: AbortSignal) => {
+      setIsLoadingPromotions(true);
+      setPromotionsError(null);
+      try {
+        const promotions = await fetchPromotions(signal);
+        setAvailablePromotions(promotions);
+      } catch (err: unknown) {
+        if (err instanceof DOMException && err.name === 'AbortError') return;
+        setPromotionsError('Không thể tải mã khuyến mãi từ máy chủ.');
+      } finally {
+        if (!signal?.aborted) {
+          setIsLoadingPromotions(false);
+        }
+      }
+    },
+    [setAvailablePromotions],
+  );
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void loadPromotions(controller.signal);
+    return () => controller.abort();
+  }, [loadPromotions]);
 
   const totals = useMemo(
     () =>
@@ -131,6 +169,9 @@ export default function CartPage() {
             sizeId: item.size.sizeId,
             quantity: item.quantity,
             toppingIds: item.toppings.map((t) => t.toppingId),
+            ...(item.sugar?.trim() ? { sugarLevel: item.sugar.trim().slice(0, 30) } : {}),
+            ...(item.ice?.trim() ? { iceLevel: item.ice.trim().slice(0, 30) } : {}),
+            ...(item.note?.trim() ? { note: item.note.trim().slice(0, 150) } : {}),
           })),
           promotionCode: appliedPromotion?.promotionCode,
           pointsToRedeem: pointsRedeemed > 0 ? pointsRedeemed : undefined,
@@ -256,16 +297,26 @@ export default function CartPage() {
               </div>
             </div>
 
-            <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-center">
+            <div className="mt-6 flex flex-col sm:flex-row flex-wrap gap-3 justify-center">
+              <Link
+                href={`/checkout?orderId=${encodeURIComponent(createdOrder.orderId)}`}
+                data-testid="pay-now-button"
+                className="min-h-[44px] px-5 py-3 rounded-2xl bg-[#D97706] hover:bg-[#C26804] text-white font-bold text-sm flex items-center justify-center gap-2 transition shadow-xs"
+              >
+                <CreditCard className="w-4 h-4" />
+                <span>Thanh toán ngay</span>
+              </Link>
               <Link
                 href={`/orders/${encodeURIComponent(createdOrder.orderId)}/receipt`}
-                className="min-h-[44px] px-6 py-3 rounded-2xl bg-[#D97706] hover:bg-[#C26804] text-white font-bold text-sm flex items-center justify-center gap-2 transition"
+                data-testid="view-receipt-button"
+                className="min-h-[44px] px-5 py-3 rounded-2xl bg-[#3D2615] hover:bg-[#2A190D] text-white font-bold text-sm flex items-center justify-center gap-2 transition"
               >
-                <span>Xem biên nhận &amp; thanh toán</span>
+                <ReceiptText className="w-4 h-4" />
+                <span>Xem biên nhận</span>
               </Link>
               <Link
                 href="/menu"
-                className="min-h-[44px] px-6 py-3 rounded-2xl bg-[#3D2615] hover:bg-[#2A190D] text-white font-bold text-sm flex items-center justify-center gap-2 transition"
+                className="min-h-[44px] px-5 py-3 rounded-2xl border border-[#EDE7DF] bg-white hover:bg-stone-50 text-[#3D2615] font-bold text-sm flex items-center justify-center gap-2 transition"
               >
                 <Coffee className="w-4 h-4" />
                 <span>Tiếp tục đặt món</span>
@@ -293,6 +344,10 @@ export default function CartPage() {
             <div className="lg:col-span-5 space-y-4 lg:sticky lg:top-24">
               <CartDiscountsCard
                 subtotal={totals.subtotal}
+                availablePromotions={availablePromotions}
+                isLoadingPromotions={isLoadingPromotions}
+                promotionsError={promotionsError}
+                onRetryPromotions={() => void loadPromotions()}
                 appliedPromotion={appliedPromotion}
                 promotionDiscount={totals.promotionDiscount}
                 pointsRedeemed={pointsRedeemed}

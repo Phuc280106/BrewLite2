@@ -26,6 +26,7 @@ export interface AddToCartInput {
 }
 
 export interface PromotionRule {
+  promotionId?: string;
   promotionCode: string;
   description: string;
   minimumOrderAmount: number;
