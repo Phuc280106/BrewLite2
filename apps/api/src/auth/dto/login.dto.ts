@@ -8,7 +8,7 @@ export class LoginDto {
   })
   @IsEmail({}, { message: 'Email không đúng định dạng' })
   @IsNotEmpty({ message: 'Email không được để trống' })
-  email: string;
+  email!: string;
 
   @ApiProperty({
     example: '123456',
@@ -16,5 +16,5 @@ export class LoginDto {
   })
   @IsString({ message: 'Mật khẩu phải là chuỗi ký tự' })
   @MinLength(1, { message: 'Mật khẩu không được để trống' })
-  password: string;
+  password!: string;
 }

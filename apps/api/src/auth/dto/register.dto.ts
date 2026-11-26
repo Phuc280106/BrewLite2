@@ -9,7 +9,7 @@ export class RegisterDto {
   @IsString({ message: 'Họ và tên phải là chuỗi ký tự' })
   @IsNotEmpty({ message: 'Họ và tên không được để trống' })
   @MinLength(2, { message: 'Họ và tên phải có ít nhất 2 ký tự' })
-  name: string;
+  name!: string;
 
   @ApiProperty({
     example: 'customer@gmail.com',
@@ -17,7 +17,7 @@ export class RegisterDto {
   })
   @IsEmail({}, { message: 'Email không đúng định dạng' })
   @IsNotEmpty({ message: 'Email không được để trống' })
-  email: string;
+  email!: string;
 
   @ApiProperty({
     example: '123456',
@@ -25,5 +25,5 @@ export class RegisterDto {
   })
   @IsString({ message: 'Mật khẩu phải là chuỗi ký tự' })
   @MinLength(6, { message: 'Mật khẩu phải có ít nhất 6 ký tự' })
-  password: string;
+  password!: string;
 }

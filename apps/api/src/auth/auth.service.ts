@@ -78,8 +78,9 @@ export class AuthService {
    * UC-AUTH-02: Đăng nhập hệ thống & cấp phát JWT Access Token (POST /api/v1/auth/login)
    */
   async login(dto: LoginDto) {
+    const emailClean = dto.email.trim().toLowerCase();
     const user = await this.prisma.user.findUnique({
-      where: { email: dto.email },
+      where: { email: emailClean },
     });
 
     if (!user) {
