@@ -7,8 +7,19 @@ import { PrismaModule } from './prisma/prisma.module';
 import { ProductsModule } from './products/products.module';
 import { OptionsModule } from './options/options.module';
 import { HealthModule } from './health/health.module';
+import { PromotionsModule } from './promotions/promotions.module';
 
 @Module({
-  imports: [PrismaModule, ProductsModule, OptionsModule, AuthModule, OrdersModule, PaymentsModule, LoyaltyModule, HealthModule],
+  imports: [
+    PrismaModule,
+    ProductsModule,
+    OptionsModule,
+    AuthModule,
+    OrdersModule,
+    PaymentsModule,
+    LoyaltyModule,
+    HealthModule,
+    PromotionsModule,
+  ],
 })
 export class AppModule {}

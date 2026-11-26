@@ -56,7 +56,8 @@ export default function BaristaQueuePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [currentUser, setCurrentUser] = useState(() => getCurrentUser());
+  const [currentUser, setCurrentUser] = useState<ReturnType<typeof getCurrentUser>>(null);
+  const [hasMounted, setHasMounted] = useState(false);
   const [activeTab, setActiveTab] = useState<QueueFilterTab>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [autoRefresh, setAutoRefresh] = useState(true);
@@ -95,6 +96,7 @@ export default function BaristaQueuePage() {
 
   // Nạp dữ liệu lần đầu
   useEffect(() => {
+    setHasMounted(true);
     setCurrentUser(getCurrentUser());
     loadQueue(false);
   }, [loadQueue]);
@@ -294,7 +296,7 @@ export default function BaristaQueuePage() {
             </button>
 
             {/* Current user badge / Login shortcut */}
-            {currentUser ? (
+            {hasMounted && currentUser ? (
               <div className="hidden lg:flex items-center gap-2 pl-2 border-l border-white/20 text-xs">
                 <div className="text-right">
                   <p className="font-semibold text-white leading-tight">
@@ -311,7 +313,7 @@ export default function BaristaQueuePage() {
       </header>
 
       {/* 2. Banner cảnh báo quyền tài khoản nếu không phải BARISTA / ADMIN */}
-      {!isStaff && (
+      {hasMounted && !isStaff && (
         <div className="bg-[#FEF3C7] border-b border-[#F5D7A9] px-4 py-3 text-xs sm:text-sm text-[#92400E]">
           <div className="max-w-[1400px] mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div className="flex items-center gap-2">
