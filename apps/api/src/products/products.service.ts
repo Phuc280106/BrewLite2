@@ -62,7 +62,8 @@ export class ProductsService {
       productMaxServings = general.maxServings;
     }
 
-    const { recipeItems: _recipeItems, ...rest } = product;
+    const rest = { ...product };
+    delete rest.recipeItems;
     return {
       ...rest,
       isAvailable: productAvailable,
