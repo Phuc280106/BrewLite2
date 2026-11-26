@@ -1,0 +1,35 @@
+@startuml
+left to right direction
+skinparam packageStyle rectangle
+
+actor "Khách hàng\n(Customer)" as Customer
+actor "Nhân viên quầy\n(Staff)" as Staff
+actor "Hệ thống\n(System)" as System
+
+rectangle "Hệ thống BrewLite" {
+
+    package "Đơn hàng" {
+        usecase "Theo dõi trạng thái" as TrackStatus
+        usecase "Hủy đơn hàng" as CancelOrder
+        usecase "Hoàn trả tồn kho" as RestoreStock
+        usecase "Cập nhật trạng thái" as UpdateStatus
+    }
+
+    package "Thanh toán" {
+        usecase "Xem biên nhận" as ViewReceipt
+    }
+
+    ' Tương tác của Khách hàng, Nhân viên và Hệ thống
+    Customer --> CancelOrder
+    Staff --> CancelOrder
+    System --> CancelOrder
+
+    ' Mối quan hệ giữa các use case
+    CancelOrder ..> ViewReceipt : <<extend>>
+    ViewReceipt ..> TrackStatus : <<include>>
+
+    ' Các bước bắt buộc khi hủy đơn
+    CancelOrder ..> RestoreStock : <<include>>
+    CancelOrder ..> UpdateStatus : <<include>>
+}
+@enduml
