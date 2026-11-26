@@ -130,7 +130,11 @@ export function AuthForm({ initialMode = 'signin', onSuccess, className = '' }: 
         if (onSuccess) {
           onSuccess(res.user);
         } else {
-          router.push('/menu');
+          if (res.user.role === 'BARISTA' || res.user.role === 'ADMIN') {
+            router.push('/barista');
+          } else {
+            router.push('/menu');
+          }
         }
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : 'Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.';

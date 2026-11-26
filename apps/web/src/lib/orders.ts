@@ -445,3 +445,110 @@ export async function cancelOrderById(orderId: string): Promise<OrderRecord> {
 
   return data as OrderRecord;
 }
+
+/**
+ * FR-09: Gọi API GET /api/v1/orders/queue lấy danh sách hàng đợi các đơn đang chờ pha chế cho Barista.
+ */
+export async function fetchBaristaQueue(): Promise<OrderRecord[]> {
+  const token = getAuthToken();
+
+  if (!token) {
+    throw new OrderApiError(
+      'Vui lòng đăng nhập với tài khoản Barista để xem hàng đợi pha chế',
+      401,
+    );
+  }
+
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE}/orders/queue`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      cache: 'no-store',
+    });
+  } catch {
+    throw new OrderApiError(
+      'Kết nối bị gián đoạn, vui lòng kiểm tra lại mạng',
+      0,
+      true,
+    );
+  }
+
+  const data = await response.json().catch(() => null);
+
+  if (response.status === 401) {
+    throw new OrderApiError(
+      'Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại',
+      401,
+    );
+  }
+
+  if (response.status === 403) {
+    throw new OrderApiError(
+      'Tài khoản không có quyền Barista để truy cập hàng đợi này',
+      403,
+    );
+  }
+
+  if (!response.ok) {
+    const message =
+      (data && (Array.isArray(data.message) ? data.message.join(', ') : data.message)) ||
+      'Không thể tải hàng đợi đơn hàng pha chế.';
+    throw new OrderApiError(message, response.status);
+  }
+
+  return (Array.isArray(data) ? data : []) as OrderRecord[];
+}
+
+/**
+ * FR-09: Gọi API PATCH /api/v1/orders/:id/status để Barista cập nhật tiến trình pha chế
+ * (PAID -> PREPARING -> READY -> COMPLETED).
+ */
+export async function updateOrderStatusByBarista(
+  orderId: string,
+  status: OrderStatus,
+): Promise<OrderRecord> {
+  const token = getAuthToken();
+
+  if (!token) {
+    throw new OrderApiError(
+      'Vui lòng đăng nhập để cập nhật trạng thái đơn hàng',
+      401,
+    );
+  }
+
+  let response: Response;
+  try {
+    response = await fetch(
+      `${API_BASE}/orders/${encodeURIComponent(orderId)}/status`,
+      {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ status }),
+      },
+    );
+  } catch {
+    throw new OrderApiError(
+      'Kết nối bị gián đoạn, vui lòng kiểm tra lại mạng',
+      0,
+      true,
+    );
+  }
+
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    const message =
+      (data && (Array.isArray(data.message) ? data.message.join(', ') : data.message)) ||
+      'Không thể cập nhật trạng thái đơn hàng này.';
+    throw new OrderApiError(message, response.status);
+  }
+
+  return data as OrderRecord;
+}

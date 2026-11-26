@@ -10,6 +10,16 @@ import { OptionsModule } from './options/options.module';
 import { HealthModule } from './health/health.module';
 
 @Module({
-  imports: [PrismaModule, ProductsModule, PromotionsModule, OptionsModule, AuthModule, OrdersModule, PaymentsModule, LoyaltyModule, HealthModule],
+  imports: [
+    PrismaModule,
+    ProductsModule,
+    PromotionsModule,
+    OptionsModule,
+    AuthModule,
+    OrdersModule,
+    PaymentsModule,
+    LoyaltyModule,
+    HealthModule,
+  ],
 })
 export class AppModule {}
