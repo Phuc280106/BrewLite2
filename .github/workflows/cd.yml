@@ -1,0 +1,85 @@
+name: CD - Docker, Deploy, Smoke Test
+
+on:
+  workflow_run:
+    workflows: ["CI - Install, Lint, Test, Build"]
+    types: [completed]
+    branches: [main]
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  docker-and-push:
+    name: Docker Image & Push Registry
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry (ghcr.io)
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Docker metadata (lowercase image name & tags)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/brewlite-api
+          tags: |
+            type=sha,prefix=
+            type=raw,value=latest
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./apps/api
+          file: ./apps/api/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+  deploy:
+    name: Deploy
+    needs: docker-and-push
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Trigger Render Deploy Hook
+        run: |
+          curl -fsS -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
+          echo "Triggered Render deploy successfully."
+
+  smoke-test:
+    name: Smoke Test
+    needs: deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Wait for Render rollout and check /api/v1/health
+        run: |
+          echo "Waiting 30s for Render to start deploying..."
+          sleep 30
+
+          HEALTH_URL="${{ secrets.PRODUCTION_API_URL }}/api/v1/health"
+          for i in $(seq 1 20); do
+            echo "Attempt $i/20: GET $HEALTH_URL"
+            if curl -fsS "$HEALTH_URL"; then
+              echo ""
+              echo "Smoke test passed!"
+              exit 0
+            fi
+            sleep 15
+          done
+
+          echo "Smoke test failed: $HEALTH_URL did not return 200 in time."
+          exit 1

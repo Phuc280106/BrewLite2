@@ -23,27 +23,30 @@ actor "Người dùng" as User
 boundary "Màn hình Đăng nhập" as LoginUI
 control "AuthController" as Controller
 control "AuthService" as Service
-control "PrismaService" as Prisma
-database "Cơ sở dữ liệu\nPostgreSQL" as DB
+database "Cơ sở dữ liệu" as DB
 
 User -> LoginUI : Nhập email, mật khẩu\nvà nhấn "Đăng nhập"
 LoginUI -> Controller : login(email, password)
-Controller -> Service : authenticate(email, password)
-Service -> Prisma : user.findUnique({ where: { email } })
-Prisma -> DB : SELECT * FROM users WHERE email = ?
-DB --> Prisma : Dữ liệu User (hoặc null)
-Prisma --> Service : User entity (hoặc null)
+Controller -> Service : login(dto)
+Service -> DB : prisma.user.findUnique(email)
+DB --> Service : Dữ liệu User (hoặc null)
 
-alt Email tồn tại và khớp mật khẩu BCrypt (AC 3 - Đăng nhập thành công)
-    Service -> Service : verifyBCrypt(password, password_hash)
+alt User tồn tại
+    Service -> Service : bcrypt.compare(password, user.passwordHash)
     deactivate Service
-    Service -> Service : generateJwtAccessToken(user)
-    deactivate Service
-    Service --> Controller : JWT Access Token (có thời hạn hiệu lực)
-    Controller --> LoginUI : 200 OK (JWT Access Token)
-    LoginUI --> User : Lưu phiên đăng nhập &\nChuyển hướng về Trang chủ
-else Sai email hoặc sai mật khẩu (AC 4 - Đăng nhập thất bại)
-    Service --> Controller : Xác thực thất bại
+    alt Mật khẩu khớp (AC 3 - Đăng nhập thành công)
+        Service -> Service : jwtService.signAsync(payload)
+        deactivate Service
+        Service --> Controller : { accessToken, user }
+        Controller --> LoginUI : 200 OK (JWT Access Token)
+        LoginUI --> User : Lưu phiên đăng nhập &\nChuyển hướng về Trang chủ
+    else Sai mật khẩu (AC 4 - Đăng nhập thất bại)
+        Service --> Controller : UnauthorizedException
+        Controller --> LoginUI : 401 Unauthorized ("Thông tin đăng nhập không chính xác")
+        LoginUI --> User : Từ chối đăng nhập & Hiển thị lỗi\n"Thông tin đăng nhập không chính xác"
+    end
+else Email không tồn tại (AC 4 - Đăng nhập thất bại)
+    Service --> Controller : UnauthorizedException
     Controller --> LoginUI : 401 Unauthorized ("Thông tin đăng nhập không chính xác")
     LoginUI --> User : Từ chối đăng nhập & Hiển thị lỗi\n"Thông tin đăng nhập không chính xác"
 end

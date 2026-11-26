@@ -31,7 +31,7 @@ export interface RegisterData {
   confirmPassword?: string;
 }
 
-export type AuthMode = 'signin' | 'signup' | 'forgot' | 'confirm';
+export type AuthMode = 'signin' | 'signup';
 
 export interface FastLoginAccount {
   label: string;
