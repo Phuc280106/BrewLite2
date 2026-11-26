@@ -23,16 +23,16 @@ actor "Người dùng" as User
 boundary "Màn hình Đăng nhập" as LoginUI
 control "AuthController" as Controller
 control "AuthService" as Service
-control "UserRepository" as Repo
-database "Cơ sở dữ liệu" as DB
+control "PrismaService" as Prisma
+database "Cơ sở dữ liệu\nPostgreSQL" as DB
 
 User -> LoginUI : Nhập email, mật khẩu\nvà nhấn "Đăng nhập"
 LoginUI -> Controller : login(email, password)
 Controller -> Service : authenticate(email, password)
-Service -> Repo : findByEmail(email)
-Repo -> DB : SELECT * FROM Users WHERE email = ?
-DB --> Repo : Dữ liệu User (hoặc null)
-Repo --> Service : User entity (hoặc null)
+Service -> Prisma : user.findUnique({ where: { email } })
+Prisma -> DB : SELECT * FROM users WHERE email = ?
+DB --> Prisma : Dữ liệu User (hoặc null)
+Prisma --> Service : User entity (hoặc null)
 
 alt Email tồn tại và khớp mật khẩu BCrypt (AC 3 - Đăng nhập thành công)
     Service -> Service : verifyBCrypt(password, password_hash)

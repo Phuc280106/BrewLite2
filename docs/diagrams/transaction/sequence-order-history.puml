@@ -3,7 +3,7 @@ actor "Khách hàng" as Customer
 participant "Frontend" as UI
 participant "OrderController" as Controller
 participant "OrderService" as Service
-participant "OrderRepository" as Repo
+participant "PrismaService" as Prisma
 database "PostgreSQL" as DB
 
 Customer -> UI : chonXemLichSuDonHang()
@@ -14,14 +14,14 @@ activate Controller
 Controller -> Service : layDonHangTheoNguoiDung(userId)
 activate Service
 
-Service -> Repo : timDonHang(userId)
-activate Repo
-Repo -> DB : truyVanDanhSachDonHang(userId)
+Service -> Prisma : order.findMany({ where: { userId } })
+activate Prisma
+Prisma -> DB : truyVanDanhSachDonHang(userId)
 activate DB
-DB --> Repo : banGhiDanhSachDonHang
+DB --> Prisma : banGhiDanhSachDonHang
 deactivate DB
-Repo --> Service : danhSachDonHang
-deactivate Repo
+Prisma --> Service : danhSachDonHang
+deactivate Prisma
 
 Service --> Controller : danhSachDonHangDto
 deactivate Service
@@ -40,14 +40,14 @@ activate Controller
 Controller -> Service : layChiTietDonHang(orderId)
 activate Service
 
-Service -> Repo : timChiTietDonHang(orderId)
-activate Repo
-Repo -> DB : truyVanChiTietDonHang(orderId)
+Service -> Prisma : order.findUnique({ where: { orderId } })
+activate Prisma
+Prisma -> DB : truyVanChiTietDonHang(orderId)
 activate DB
-DB --> Repo : banGhiChiTietDonHang
+DB --> Prisma : banGhiChiTietDonHang
 deactivate DB
-Repo --> Service : chiTietDonHang
-deactivate Repo
+Prisma --> Service : chiTietDonHang
+deactivate Prisma
 
 Service --> Controller : chiTietDonHangDto
 deactivate Service

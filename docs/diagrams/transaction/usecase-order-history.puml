@@ -1,27 +1,61 @@
-@startuml
+@startuml usecase_order_history
+title Phân hệ Lịch sử Đơn hàng & Biên nhận (Transaction & Order History)
 left to right direction
-skinparam packageStyle rectangle
 
+' --- Cấu hình giao diện chuẩn đen trắng (Monochrome UML 2.5) ---
+skinparam monochrome true
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam actorStyle stickman
+skinparam roundCorner 10
+
+' --- Khai báo Actor ---
 actor "Khách hàng\n(Customer)" as Customer
+actor "Nhân viên quầy\n(Barista)" as Barista
+actor "Hệ thống\n(System Timer)" as SystemTimer
 
 rectangle "Hệ thống BrewLite" {
 
-    package "Đơn hàng" {
+    package "Lịch sử & Biên nhận" {
         usecase "Xem lịch sử đơn" as ViewHistory
-        usecase "Theo dõi trạng thái" as TrackStatus
+        usecase "Xem biên nhận điện tử" as ViewReceipt
+        usecase "Theo dõi tiến trình trạng thái" as TrackStatus
+    }
+
+    package "Nghiệp vụ Hủy đơn hàng" {
+        usecase "<b>Hủy đơn hàng</b>\n(Cancel Order)" as CancelOrder
+        usecase "Kiểm tra quyền & trạng thái\n(State Machine Assertion)" as ValidateCancel
+        usecase "Hoàn trả tồn kho nguyên liệu\n(Restore Stock)" as RestoreStock
+        usecase "Hoàn điểm tích lũy đã dùng\n(Refund Points)" as RefundPoints
+        usecase "Cập nhật trạng thái CANCELLED" as UpdateStatus
     }
 
     package "Thanh toán" {
         usecase "Thanh toán đơn hàng" as Payment
-        usecase "Xem biên nhận" as ViewReceipt
+        usecase "Thanh toán lại khi thất bại\n(Retry Payment)" as RetryPayment
     }
 
-    ' Tương tác của Khách hàng
+    ' --- Tương tác của Actor ---
     Customer --> ViewHistory
+    Customer --> ViewReceipt
     Customer --> TrackStatus
     Customer --> Payment
+    Customer --> CancelOrder
 
-    ' Mối quan hệ include
+    Barista --> CancelOrder
+    SystemTimer --> CancelOrder
+
+    ' --- Quan hệ include & extend ---
     Payment ..> ViewReceipt : <<include>>
+    RetryPayment ..> ViewReceipt : <<extend>>
+
+    ' Khách hàng hủy đơn mở rộng từ màn hình Biên nhận / Theo dõi trạng thái
+    CancelOrder .up.> ViewReceipt : <<extend>>\n(điểm mở rộng: khi PENDING hoặc PAYMENT_FAILED)
+
+    ' Các bước bắt buộc trong nghiệp vụ Hủy đơn hàng
+    CancelOrder ..> ValidateCancel : <<include>>
+    CancelOrder ..> RestoreStock : <<include>>
+    CancelOrder ..> UpdateStatus : <<include>>
+    CancelOrder ..> RefundPoints : <<extend>>\n(khi đơn có dùng điểm đổi thưởng)
 }
 @enduml

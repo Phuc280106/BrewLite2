@@ -24,7 +24,7 @@ actor "Cổng VNPay\nSandbox" as Gateway
 rectangle "Phân hệ Thanh toán & Giao dịch (Payment & Transaction Module)" {
     usecase "Thanh toán đơn hàng" as UC_Pay
 
-    usecase "Chọn phương thức thanh toán VNPay\n(Cổng VNPay / QR / ATM / Thẻ quốc tế)" as UC_Method
+    usecase "Chọn phương thức thanh toán VNPay\n(Cổng VNPay Sandbox / ATM / Thẻ quốc tế)" as UC_Method
     usecase "Sinh URL thanh toán VNPay\n(vnp_TxnRef + chữ ký HMAC-SHA512)" as UC_CreateUrl
     usecase "Xác minh chữ ký ReturnUrl" as UC_Verify
     usecase "Kiểm tra giao dịch đã xử lý\n(khóa theo vnp_TxnRef)" as UC_CheckKey

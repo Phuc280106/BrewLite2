@@ -23,24 +23,24 @@ actor "Người dùng" as User
 boundary "Màn hình Đăng ký" as RegisterUI
 control "AuthController" as Controller
 control "AuthService" as Service
-control "UserRepository" as Repo
-database "Cơ sở dữ liệu" as DB
+control "PrismaService" as Prisma
+database "Cơ sở dữ liệu\nPostgreSQL" as DB
 
 User -> RegisterUI : Nhập họ tên, email và mật khẩu (>= 8 ký tự)\nvà nhấn "Đăng ký"
 RegisterUI -> Controller : register(fullname, email, password)
 Controller -> Service : registerUser(fullname, email, password)
-Service -> Repo : existsByEmail(email)
-Repo -> DB : SELECT * FROM Users WHERE email = ?
-DB --> Repo : Kết quả truy vấn
-Repo --> Service : boolean (Tồn tại / Chưa tồn tại)
+Service -> Prisma : user.findUnique({ where: { email } })
+Prisma -> DB : SELECT * FROM users WHERE email = ?
+DB --> Prisma : Kết quả truy vấn
+Prisma --> Service : boolean (Tồn tại / Chưa tồn tại)
 
 alt Email chưa tồn tại và mật khẩu hợp lệ (AC 1 - Đăng ký hợp lệ)
     Service -> Service : hashPasswordBCrypt(password)
     deactivate Service
-    Service -> Repo : saveUser(fullname, email, hashedPassword)
-    Repo -> DB : INSERT INTO Users(fullname, email, password_hash)
-    DB --> Repo : Lưu thành công
-    Repo --> Service : User entity
+    Service -> Prisma : user.create(...)
+    Prisma -> DB : INSERT INTO users(name, email, password_hash)
+    DB --> Prisma : Lưu thành công
+    Prisma --> Service : User entity
     Service --> Controller : Kết quả đăng ký thành công
     Controller --> RegisterUI : 201 Created (Đăng ký thành công)
     RegisterUI --> User : Thông báo thành công &\nChuyển hướng tới trang "Đăng nhập"
