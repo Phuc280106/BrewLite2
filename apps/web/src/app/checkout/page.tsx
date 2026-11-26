@@ -10,7 +10,6 @@ import {
   Loader2,
   Lock,
   QrCode,
-  StickyNote,
   User,
   CreditCard,
   Wallet,
@@ -79,9 +78,8 @@ function CheckoutContent() {
   const [order, setOrder] = useState<OrderDto | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  // Hai lựa chọn dưới chỉ là giao diện (backend chưa có trường lưu), không gửi lên API
+  // Lựa chọn dưới chỉ là giao diện (backend chưa có trường lưu), không gửi lên API
   const [mode, setMode] = useState<FulfillmentMode>('TAKEAWAY');
-  const [note, setNote] = useState('');
 
   const [selectedId, setSelectedId] = useState<string>(VNPAY_OPTIONS[0].id);
   const [isPaying, setIsPaying] = useState(false);
@@ -182,7 +180,7 @@ function CheckoutContent() {
     return <div className="mx-5 mt-6 h-64 rounded-2xl bg-white border border-[#EDE7DF] animate-pulse" />;
   }
 
-  if (order.status !== 'PENDING') {
+  if (order.status !== 'PENDING' && order.status !== 'PAYMENT_FAILED') {
     return (
       <div className="px-5 py-16 text-center space-y-4">
         <p className="text-stone-600 text-sm">
@@ -233,20 +231,6 @@ function CheckoutContent() {
               <p className="text-stone-500">{user?.email ?? ''}</p>
             </div>
           </div>
-        </section>
-
-        <section>
-          <h2 className="font-bold text-[#3D2615] mb-2.5">Ghi chú cho Barista</h2>
-          <label className="bg-white rounded-2xl border border-[#EDE7DF] px-3.5 min-h-[48px] flex items-center gap-3">
-            <StickyNote className="w-4 h-4 text-stone-500 shrink-0" />
-            <input
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              maxLength={120}
-              placeholder="Lấy thêm muỗng ăn kem cheese"
-              className="flex-1 bg-transparent outline-none text-sm placeholder:text-stone-500"
-            />
-          </label>
         </section>
 
         <section>
