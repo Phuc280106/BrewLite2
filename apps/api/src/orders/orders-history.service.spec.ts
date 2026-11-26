@@ -203,4 +203,45 @@ describe('OrdersService (FR-07 & FR-08: Order History, Receipt & Cancel)', () =>
       expect(mockTx.order.update).not.toHaveBeenCalled();
     });
   });
+
+  describe('findBaristaQueue (FR-09)', () => {
+    it('should return active orders (PAID, PREPARING, READY) for BARISTA role', async () => {
+      mockPrisma.order.findMany.mockResolvedValue([sampleOrder]);
+
+      const result = await service.findBaristaQueue('barista-1', 'BARISTA');
+
+      expect(mockPrisma.order.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            status: {
+              in: [OrderStatus.PAID, OrderStatus.PREPARING, OrderStatus.READY],
+            },
+          },
+          orderBy: { createdAt: 'asc' },
+        }),
+      );
+      expect(result).toHaveLength(1);
+    });
+
+    it('should allow ADMIN role to access barista queue', async () => {
+      mockPrisma.order.findMany.mockResolvedValue([sampleOrder]);
+
+      const result = await service.findBaristaQueue('admin-1', 'ADMIN');
+
+      expect(result).toHaveLength(1);
+    });
+
+    it('should throw ForbiddenException when a CUSTOMER tries to access barista queue', async () => {
+      await expect(
+        service.findBaristaQueue('customer-1', 'CUSTOMER'),
+      ).rejects.toThrow(ForbiddenException);
+      expect(mockPrisma.order.findMany).not.toHaveBeenCalled();
+    });
+
+    it('should throw UnauthorizedException when authUserId is empty', async () => {
+      await expect(service.findBaristaQueue('', 'BARISTA')).rejects.toThrow(
+        UnauthorizedException,
+      );
+    });
+  });
 });

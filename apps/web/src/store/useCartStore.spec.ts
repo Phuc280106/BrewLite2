@@ -231,18 +231,18 @@ describe('useCartStore & cartPricing (FR-03 / UNIT-T01)', () => {
     expect(totals.loyaltyDiscount).toBe(10000);
     expect(totals.grandTotal).toBe(77000);
 
-    // E2: Đổi 200 điểm (200.000đ > 87.000đ sau promo) -> tự động giới hạn 87 điểm
+    // E2: Đổi 200 điểm (200.000đ > 87.000đ sau promo) -> giữ lại tối thiểu 5.000đ nên chỉ đổi tối đa 82 điểm
     const cappedRes = store.applyLoyaltyPoints(200, 300);
     expect(cappedRes.ok).toBe(true);
-    expect(cappedRes.appliedPoints).toBe(87);
-    expect(useCartStore.getState().pointsRedeemed).toBe(87);
+    expect(cappedRes.appliedPoints).toBe(82);
+    expect(useCartStore.getState().pointsRedeemed).toBe(82);
 
     totals = calculateCartTotals({
       items: useCartStore.getState().items,
       appliedPromotion: useCartStore.getState().appliedPromotion,
       pointsRedeemed: useCartStore.getState().pointsRedeemed,
     });
-    expect(totals.grandTotal).toBe(0);
+    expect(totals.grandTotal).toBe(5000);
   });
 
   it('persists cart to localStorage under brewlite-cart and handles storage errors gracefully (E3)', () => {

@@ -39,7 +39,10 @@ describe('OrdersService.cancelExpiredOrders', () => {
 
     expect(cancelled).toBe(1);
     expect(mockTx.order.updateMany).toHaveBeenCalledWith({
-      where: { orderId: 'o1', status: OrderStatus.PENDING },
+      where: {
+        orderId: 'o1',
+        status: { in: [OrderStatus.PENDING, OrderStatus.PAYMENT_FAILED] },
+      },
       data: { status: OrderStatus.CANCELLED },
     });
     expect(mockTx.ingredient.update).toHaveBeenCalledWith({

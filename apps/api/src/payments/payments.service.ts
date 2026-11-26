@@ -78,6 +78,14 @@ export class PaymentsService {
       );
     }
 
+    // Nếu đơn đang PAYMENT_FAILED, chuyển lại PENDING khi khách bấm thanh toán lại
+    if (order.status === OrderStatus.PAYMENT_FAILED) {
+      await this.prisma.order.updateMany({
+        where: { orderId: order.orderId, status: OrderStatus.PAYMENT_FAILED },
+        data: { status: OrderStatus.PENDING },
+      });
+    }
+
     const paymentUrl = this.vnpay.createPaymentUrl({
       orderId: order.orderId,
       orderInfo: `Thanh toan don hang ${order.orderId}`,
@@ -100,7 +108,7 @@ export class PaymentsService {
    * 1. Xác minh chữ ký HMAC-SHA512 (sai -> 400)
    * 2. Tra khóa chống trùng theo vnp_TxnRef -> đã xử lý thì trả lại kết quả cũ
    * 3. Kiểm tra đơn + đối soát số tiền
-   * 4. Thành công (00): lưu Payment SUCCESS + đơn PENDING->PREPARING + tích điểm
+   * 4. Thành công (00): lưu Payment SUCCESS + đơn PENDING->PAID + tích điểm
    *    Thất bại / khách hủy: lưu Payment FAILED, đơn giữ PENDING để thanh toán lại
    */
   async handleVnpayReturn(
@@ -135,7 +143,7 @@ export class PaymentsService {
     try {
       if (result.isSuccess) {
         const { payment, pointsEarned } =
-          await this.saveSuccessPaymentAndMarkPreparing(
+          await this.saveSuccessPaymentAndMarkPaid(
             order,
             key,
             result.transactionNo,
@@ -143,7 +151,7 @@ export class PaymentsService {
         return {
           success: true,
           message: 'Thanh toán qua VNPay Sandbox thành công!',
-          ...this.toResponse(payment, OrderStatus.PREPARING, pointsEarned, false),
+          ...this.toResponse(payment, OrderStatus.PAID, pointsEarned, false),
         };
       }
 
@@ -223,7 +231,10 @@ export class PaymentsService {
     if (order.status === OrderStatus.CANCELLED) {
       throw new InvalidOrderException('Đơn hàng đã bị hủy');
     }
-    if (order.status !== OrderStatus.PENDING) {
+    if (
+      order.status !== OrderStatus.PENDING &&
+      order.status !== OrderStatus.PAYMENT_FAILED
+    ) {
       throw new InvalidOrderException('Đơn hàng đã được thanh toán');
     }
     if (Date.now() - order.createdAt.getTime() > ORDER_PAYMENT_TTL_MS) {
@@ -233,16 +244,19 @@ export class PaymentsService {
     }
   }
 
-  private saveSuccessPaymentAndMarkPreparing(
+  private saveSuccessPaymentAndMarkPaid(
     order: Order,
     idempotencyKey: string,
     transactionId?: string,
   ) {
     return this.prisma.$transaction(async (tx) => {
-      // Chỉ chuyển trạng thái nếu đơn vẫn PENDING (tránh đua với scheduler hủy đơn)
+      // Chỉ chuyển trạng thái nếu đơn vẫn PENDING hoặc PAYMENT_FAILED (tránh đua với scheduler hủy đơn)
       const updated = await tx.order.updateMany({
-        where: { orderId: order.orderId, status: OrderStatus.PENDING },
-        data: { status: OrderStatus.PREPARING },
+        where: {
+          orderId: order.orderId,
+          status: { in: [OrderStatus.PENDING, OrderStatus.PAYMENT_FAILED] },
+        },
+        data: { status: OrderStatus.PAID },
       });
       if (updated.count !== 1) {
         throw new InvalidOrderException(
@@ -289,16 +303,25 @@ export class PaymentsService {
     idempotencyKey: string,
     transactionId?: string,
   ) {
-    // Đơn giữ nguyên PENDING để khách thanh toán lại bằng một phiên VNPay mới
-    return this.prisma.payment.create({
-      data: {
-        orderId: order.orderId,
-        paymentMethod: VNPAY_METHOD,
-        status: PaymentStatus.FAILED,
-        transactionId: transactionId || undefined,
-        idempotencyKey,
-        amount: order.totalAmount,
-      },
+    // Ghi nhận Payment FAILED và chuyển trạng thái đơn từ PENDING -> PAYMENT_FAILED
+    return this.prisma.$transaction(async (tx) => {
+      const payment = await tx.payment.create({
+        data: {
+          orderId: order.orderId,
+          paymentMethod: VNPAY_METHOD,
+          status: PaymentStatus.FAILED,
+          transactionId: transactionId || undefined,
+          idempotencyKey,
+          amount: order.totalAmount,
+        },
+      });
+
+      await tx.order.updateMany({
+        where: { orderId: order.orderId, status: OrderStatus.PENDING },
+        data: { status: OrderStatus.PAYMENT_FAILED },
+      });
+
+      return payment;
     });
   }
 
