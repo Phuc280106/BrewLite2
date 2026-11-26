@@ -1,5 +1,5 @@
 @startuml
-title Sequence Diagram - Thanh toán mô phỏng & Chống trùng lặp (FR-06)
+title Sequence Diagram - Thanh toán qua Cổng VNPay Sandbox & Chống trùng lặp (FR-06)
 
 autonumber "0:"
 hide footbox
@@ -25,31 +25,87 @@ participant "<u>:CheckoutPage</u>" as UI
 participant "<u>:PaymentsController</u>" as Controller
 participant "<u>:JwtAuthGuard</u>" as Guard
 participant "<u>:PaymentsService</u>" as Service
-participant "<u>:MockPaymentGateway</u>" as Gateway
+participant "<u>:VnpayService</u>" as Vnpay
 participant "<u>:PrismaService</u>" as Prisma
 participant "<u>:PostgreSQL</u>" as DB
+participant "<u>:CongVNPaySandbox</u>" as Gateway
+participant "<u>:VnpayReturnPage</u>" as Return
 
-User -> UI : selectMethod(method)
-activate UI
-UI -> UI : generateIdempotencyKey()
+== Khởi tạo thanh toán ==
+
+User -> UI : selectMethod(bankCode)
 User -> UI : onClickPay()
+activate UI
 UI -> UI : disablePayButton()
-UI -> Controller : createPayment(orderId, method, key)
+UI -> Controller : initiatePayment(orderId, bankCode)
 activate Controller
 Controller -> Guard : canActivate(context)
 activate Guard
 Guard --> Controller : userId
 deactivate Guard
 
-alt Thiếu JWT hoặc thiếu Idempotency-Key
-    Controller --> UI : invalidRequestError
+alt Thiếu hoặc sai JWT
+    Controller --> UI : unauthorizedError
     UI --> User : showError(message)
-else JWT hợp lệ và có Idempotency-Key
-    Controller -> Service : processPayment(userId, orderId, method, key)
+else JWT hợp lệ
+    Controller -> Service : initiatePayment(userId, orderId, bankCode, ip)
     activate Service
-    Service -> Prisma : findPaymentByKey(key, userId)
+    Service -> Prisma : findOrder(orderId)
     activate Prisma
-    Prisma -> DB : queryPaymentByKey(key, userId)
+    Prisma -> DB : queryOrderById(orderId)
+    activate DB
+    DB --> Prisma : orderRecord
+    deactivate DB
+    Prisma --> Service : order
+    deactivate Prisma
+    Service -> Service : validateOrder(order, userId)
+
+    alt Đơn không hợp lệ hoặc dưới 5.000đ
+        Service --> Controller : InvalidOrderException
+        Controller --> UI : invalidOrderError
+        UI --> User : showError(message)
+    else Đơn hợp lệ
+        Service -> Vnpay : createPaymentUrl(orderId, amount, bankCode, ip)
+        activate Vnpay
+        Vnpay --> Service : paymentUrl (vnp_TxnRef + vnp_SecureHash)
+        deactivate Vnpay
+        Service --> Controller : paymentUrl
+        Controller --> UI : paymentUrl
+        UI --> User : redirect(paymentUrl)
+    end
+    deactivate Service
+end
+deactivate Controller
+deactivate UI
+
+== Thanh toán trên cổng VNPay ==
+
+User -> Gateway : thanhToan / huyGiaoDich
+activate Gateway
+Gateway --> User : redirect(ReturnUrl + vnp_*)
+deactivate Gateway
+
+== Xử lý kết quả tại ReturnUrl ==
+
+User -> Return : openReturnPage(vnp_*)
+activate Return
+Return -> Controller : handleVnpayReturn(vnp_*)
+activate Controller
+Controller -> Service : handleVnpayReturn(query)
+activate Service
+Service -> Vnpay : verifyReturn(query)
+activate Vnpay
+Vnpay --> Service : verifyResult
+deactivate Vnpay
+
+alt Chữ ký không hợp lệ
+    Service --> Controller : InvalidOrderException
+    Controller --> Return : invalidSignatureError
+    Return --> User : showError(message)
+else Chữ ký hợp lệ
+    Service -> Prisma : findPaymentByKey(VNPAY_vnp_TxnRef)
+    activate Prisma
+    Prisma -> DB : queryPaymentByKey(key)
     activate DB
     DB --> Prisma : paymentRecord
     deactivate DB
@@ -57,16 +113,9 @@ else JWT hợp lệ và có Idempotency-Key
     deactivate Prisma
 
     alt Key đã tồn tại
-        alt Payment cũ là SUCCESS
-            Service --> Controller : payment
-            Controller --> UI : paymentResponse
-            UI --> User : navigateToReceipt(orderId)
-        else Payment cũ là FAILED
-            Service --> Controller : payment
-            Controller --> UI : paymentError
-            UI --> User : showError(message)
-            UI -> UI : generateIdempotencyKey()
-        end
+        Service --> Controller : kết quả cũ (SUCCESS / FAILED)
+        Controller --> Return : paymentResponse
+        Return --> User : showResult()
     else Key chưa tồn tại
         Service -> Prisma : findOrder(orderId)
         activate Prisma
@@ -76,49 +125,41 @@ else JWT hợp lệ và có Idempotency-Key
         deactivate DB
         Prisma --> Service : order
         deactivate Prisma
-        Service -> Service : validateOrder(order, userId)
+        Service -> Service : doiSoatSoTien(order, vnp_Amount)
 
-        alt Đơn không hợp lệ
+        alt Đơn không tồn tại hoặc số tiền không khớp
             Service --> Controller : InvalidOrderException
-            Controller --> UI : invalidOrderError
-            UI --> User : showError(message)
-        else Đơn hợp lệ
-            Service -> Gateway : charge(amount, method)
-            activate Gateway
-            Gateway --> Service : gatewayResult
-            deactivate Gateway
-
-            alt Giao dịch thành công
-                Service -> Prisma : saveSuccessPaymentAndMarkPreparing(order, key, method)
-                activate Prisma
-                Prisma -> DB : insertPaymentAndUpdateOrder(order, key, method)
-                activate DB
-                DB --> Prisma : paymentRecord
-                deactivate DB
-                Prisma --> Service : payment
-                deactivate Prisma
-                Service --> Controller : payment
-                Controller --> UI : paymentResponse
-                UI --> User : navigateToReceipt(orderId)
-            else Giao dịch bị từ chối
-                Service -> Prisma : saveFailedPayment(order, key, method)
-                activate Prisma
-                Prisma -> DB : insertPayment(order, key, method)
-                activate DB
-                DB --> Prisma : paymentRecord
-                deactivate DB
-                Prisma --> Service : payment
-                deactivate Prisma
-                Service --> Controller : payment
-                Controller --> UI : paymentError
-                UI --> User : showError(message)
-                UI -> UI : generateIdempotencyKey()
-            end
+            Controller --> Return : invalidOrderError
+            Return --> User : showError(message)
+        else Hợp lệ và VNPay báo thành công (00)
+            Service -> Prisma : saveSuccessPaymentAndMarkPreparing(order, key)
+            activate Prisma
+            Prisma -> DB : insertPaymentAndUpdateOrder(order, key)
+            activate DB
+            DB --> Prisma : paymentRecord
+            deactivate DB
+            Prisma --> Service : payment
+            deactivate Prisma
+            Service --> Controller : payment
+            Controller --> Return : paymentResponse
+            Return --> User : navigateToReceipt(orderId)
+        else Hợp lệ nhưng VNPay báo thất bại / khách hủy
+            Service -> Prisma : saveFailedPayment(order, key)
+            activate Prisma
+            Prisma -> DB : insertPayment(order, key)
+            activate DB
+            DB --> Prisma : paymentRecord
+            deactivate DB
+            Prisma --> Service : payment
+            deactivate Prisma
+            Service --> Controller : paymentFailed
+            Controller --> Return : paymentError
+            Return --> User : showError(message) + thanhToanLai
         end
     end
-    deactivate Service
 end
+deactivate Service
 deactivate Controller
-deactivate UI
+deactivate Return
 
 @enduml

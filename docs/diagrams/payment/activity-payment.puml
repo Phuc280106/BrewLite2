@@ -1,5 +1,5 @@
 @startuml
-title Sơ đồ activity chức năng Thanh toán mô phỏng\n& Chống trùng lặp (FR-06)
+title Sơ đồ activity chức năng Thanh toán qua Cổng VNPay Sandbox\n& Chống trùng lặp (FR-06)
 
 skinparam defaultFontSize 11
 skinparam titleFontSize 12
@@ -17,62 +17,68 @@ skinparam NoteBackgroundColor #FEF9E7
 
 |Khách hàng|
 start
-:Chọn phương thức\n(thẻ / ví giả lập);
+:Chọn phương thức VNPay\n(Cổng VNPay / QR / ATM / Thẻ quốc tế);
+:Nhấn nút "Thanh toán qua VNPay";
 
 |Hệ thống|
-:Sinh Idempotency-Key\n(UUIDv4);
+:Khóa nút, gửi POST /payments/initiate\nkèm JWT + mã đơn;
 
-|Khách hàng|
-:Nhấn nút "Thanh toán";
-
-|Hệ thống|
-:Khóa nút, gửi POST /payments\nkèm JWT + key;
-
--> JWT hợp lệ\nvà có key?;
+-> JWT hợp lệ?;
 if () then (không)
-  :Trả lỗi 401 /\nyêu cầu không hợp lệ;
+  :Trả lỗi 401;
   stop
 else (có)
 endif
 
--> Key (của khách này)\nđã xử lý trong 24 giờ?;
-if () then (có)
-  -> Kết quả cũ\nlà SUCCESS?;
-  if () then (SUCCESS)
-    :Trả kết quả cũ\n(200 OK, không\ntrừ tiền lần 2);
-  else (FAILED)
-    :Trả kết quả FAILED cũ\n(200 OK, không gọi cổng lại);
+-> Đơn hợp lệ, PENDING,\nchưa quá 15 phút và từ 5.000đ?;
+if () then (không)
+  :Từ chối,\nđơn không hợp lệ;
+  stop
+else (có)
+endif
 
-    |Khách hàng|
-    :Xem lỗi, thanh toán lại\n(sinh key mới);
-    stop
-  endif
+:Sinh vnp_TxnRef (orderId_timestamp),\nký HMAC-SHA512, trả paymentUrl;
+:Chuyển hướng khách\nsang Cổng VNPay;
+
+|Cổng VNPay|
+:Khách thanh toán trên cổng\n(hoặc bấm Hủy);
+:Chuyển khách về ReturnUrl\nkèm tham số vnp_*;
+
+|Hệ thống|
+:Trang /payment/vnpay-return gọi\nGET /payments/vnpay/return;
+
+-> Chữ ký hợp lệ?;
+if () then (không)
+  :Từ chối (400),\nkhông đổi dữ liệu;
+  stop
+else (có)
+endif
+
+-> vnp_TxnRef đã\nxử lý trước đó?;
+if () then (có)
+  :Trả kết quả cũ (200 OK),\nkhông ghi thêm, không cộng điểm lần 2;
 else (chưa)
-  -> Đơn hợp lệ, PENDING\nvà chưa quá 15 phút?;
+  -> Đơn tồn tại và số tiền\nkhớp giá trị đơn?;
   if () then (không)
-    :Từ chối,\nđơn không hợp lệ;
+    :Từ chối (400),\nkhông ghi nhận giao dịch;
     stop
   else (có)
   endif
 
-  |Cổng thanh toán|
-  :Xử lý giao dịch\nmô phỏng;
-
-  |Hệ thống|
-  -> Giao dịch\nthành công?;
+  -> VNPay báo\nthành công (00)?;
   if () then (thành công)
-    :Tạo Payment SUCCESS,\nđơn PENDING → PREPARING,\ntrả 200 OK;
-  else (bị từ chối)
-    :Tạo Payment FAILED,\ngiữ đơn PENDING, trả lỗi;
+    :Tạo Payment SUCCESS,\nđơn PENDING → PREPARING,\ncộng điểm thưởng;
+  else (thất bại / khách hủy)
+    :Tạo Payment FAILED,\ngiữ đơn PENDING;
 
     |Khách hàng|
-    :Xem lỗi, thanh toán lại\n(sinh key mới);
+    :Xem lỗi, chọn\n"Thanh toán lại";
     stop
   endif
 endif
 
 |Hệ thống|
-:Chuyển sang\nmàn hình Biên nhận;
+:Hiển thị kết quả thành công,\nchuyển sang màn hình Biên nhận;
 
 |Khách hàng|
 :Xem biên nhận đơn hàng;
