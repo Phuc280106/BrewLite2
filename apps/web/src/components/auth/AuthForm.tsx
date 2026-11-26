@@ -2,11 +2,9 @@
 
 // ============================================================
 // AuthForm Component (BrewLite Authentication)
-// 4 Variants matching Figma Component Set (IUwGwAon8cvD3CtxHPsfHW):
+// 2 Variants:
 //   1. Sign In (Đăng nhập)
 //   2. Sign Up (Đăng ký)
-//   3. Forgot Password (Quên mật khẩu)
-//   4. Confirmation (Xác nhận gửi email)
 // ============================================================
 
 import React, { useState } from 'react';
@@ -97,7 +95,6 @@ export function AuthForm({ initialMode = 'signin', onSuccess, className = '' }: 
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [submittedEmail, setSubmittedEmail] = useState('');
 
   const emailValidation = validateEmail(email);
   const isEmailValid = emailValidation.isValid;
@@ -170,13 +167,6 @@ export function AuthForm({ initialMode = 'signin', onSuccess, className = '' }: 
       } finally {
         setIsLoading(false);
       }
-    } else if (mode === 'forgot') {
-      setIsLoading(true);
-      setTimeout(() => {
-        setIsLoading(false);
-        setSubmittedEmail(email);
-        setMode('confirm');
-      }, 750);
     }
   };
 
@@ -290,20 +280,9 @@ export function AuthForm({ initialMode = 'signin', onSuccess, className = '' }: 
 
           {/* Trường Mật khẩu */}
           <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label htmlFor="auth-password" className="text-xs font-semibold text-[#6B5D55] uppercase tracking-wider">
-                Mật khẩu
-              </label>
-              {mode === 'signin' && (
-                <button
-                  type="button"
-                  onClick={() => handleModeSwitch('forgot')}
-                  className="text-xs font-semibold text-[#C8682E] hover:text-[#A85320] transition hover:underline"
-                >
-                  Quên mật khẩu?
-                </button>
-              )}
-            </div>
+            <label htmlFor="auth-password" className="block text-xs font-semibold text-[#6B5D55] mb-1.5 uppercase tracking-wider">
+              Mật khẩu
+            </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-stone-400">
                 <Lock className="w-5 h-5" />
@@ -405,115 +384,6 @@ export function AuthForm({ initialMode = 'signin', onSuccess, className = '' }: 
             )}
           </button>
         </form>
-      )}
-
-  
-
-      {/* ============================================================ */}
-      {/* VARIANT 3: FORGOT PASSWORD (Quên mật khẩu)                  */}
-      {/* ============================================================ */}
-      {mode === 'forgot' && (
-        <div className="space-y-5 animate-fadeIn">
-          <div>
-            <h2 className="text-2xl font-bold text-[#1F1612]">Quên mật khẩu?</h2>
-            <p className="mt-1.5 text-sm text-[#6B5D55]">
-              Nhập email đã đăng ký của bạn để nhận liên kết đặt lại mật khẩu an toàn.
-            </p>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label htmlFor="auth-forgot-email" className="block text-xs font-semibold text-[#6B5D55] mb-1.5 uppercase tracking-wider">
-                Địa chỉ Email
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-stone-400">
-                  <Mail className="w-5 h-5" />
-                </div>
-                <input
-                  id="auth-forgot-email"
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="tenban@gmail.com"
-                  className={`w-full pl-10 pr-10 py-3 bg-[#FCFBF9] border rounded-xl text-sm transition outline-none text-[#1F1612] ${
-                    email.trim().length > 0 && !isEmailValid
-                      ? 'border-rose-400 focus:border-rose-500 focus:ring-2 focus:ring-rose-200'
-                      : 'border-[#E5E0D8] focus:border-[#C8682E] focus:ring-2 focus:ring-[#C8682E]/20'
-                  }`}
-                />
-                {isEmailValid && (
-                  <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-[#10B981]">
-                    <CheckCircle2 className="w-5 h-5" />
-                  </div>
-                )}
-              </div>
-              {email.trim().length > 0 && !isEmailValid && (
-                <p className="mt-1 text-xs text-rose-600">{emailError || 'Định dạng email không hợp lệ (Ví dụ: tenban@gmail.com).'}</p>
-              )}
-            </div>
-
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full py-3.5 px-6 rounded-full bg-[#2B1810] hover:bg-[#1E100A] active:scale-[0.99] text-white font-semibold text-sm transition-all duration-200 flex items-center justify-center gap-2 shadow-lg shadow-[#2B1810]/20 disabled:opacity-60 cursor-pointer"
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Đang gửi liên kết...</span>
-                </>
-              ) : (
-                <>
-                  <span>Gửi liên kết đặt lại</span>
-                  <ArrowRight className="w-4 h-4" />
-                </>
-              )}
-            </button>
-
-            <div className="text-center pt-2">
-              <button
-                type="button"
-                onClick={() => handleModeSwitch('signin')}
-                className="text-sm font-semibold text-[#6B5D55] hover:text-[#1F1612] transition"
-              >
-                ← Quay lại đăng nhập
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
-
-      {/* ============================================================ */}
-      {/* VARIANT 4: CONFIRMATION (Kiểm tra hộp thư)                   */}
-      {/* ============================================================ */}
-      {mode === 'confirm' && (
-        <div className="text-center py-4 space-y-4 animate-fadeIn">
-          {/* Big Green Checkmark Icon */}
-          <div className="w-16 h-16 rounded-full bg-[#EEF7F2] text-[#10B981] flex items-center justify-center mx-auto shadow-inner">
-            <CheckCircle2 className="w-10 h-10" />
-          </div>
-
-          <div>
-            <h2 className="text-2xl font-bold text-[#1F1612]">Kiểm tra hộp thư của bạn</h2>
-            <p className="mt-2 text-sm text-[#6B5D55] max-w-sm mx-auto leading-relaxed">
-              Chúng tôi đã gửi đường dẫn đặt lại mật khẩu đến{' '}
-              <strong className="text-[#1F1612]">{submittedEmail || 'email của bạn'}</strong>.
-              Vui lòng kiểm tra hòm thư chính và thư mục thư rác (Spam).
-            </p>
-          </div>
-
-          <div className="pt-2">
-            <button
-              type="button"
-              onClick={() => handleModeSwitch('signin')}
-              className="w-full py-3.5 px-6 rounded-full bg-[#2B1810] hover:bg-[#1E100A] active:scale-[0.99] text-white font-semibold text-sm transition-all duration-200 shadow-md cursor-pointer"
-            >
-              Quay lại đăng nhập
-            </button>
-          </div>
-        </div>
       )}
 
       {/* Guest Bypass (Áp dụng cho mọi màn hình để vào Menu) */}

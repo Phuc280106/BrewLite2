@@ -26,11 +26,11 @@ control "AuthService" as Service
 
 User -> UI : Nhấn nút "Đăng xuất"
 UI -> Controller : logout() [POST /api/v1/auth/logout]\n(kèm Bearer JWT Token)
-Controller -> Service : logoutUser(userId)
-Service --> Controller : Xác nhận đăng xuất thành công (Clear Session/Cookie)
+Controller -> Service : logout()
+Service --> Controller : { message: "Đăng xuất thành công" }
 Controller --> UI : 200 OK ("Đăng xuất thành công")
 
-UI -> UI : Xóa JWT Token khỏi localStorage/Cookie &\nReset Auth State về Khách vãng lai
+UI -> UI : Xóa JWT Token & User khỏi localStorage &\nReset Auth State về Khách vãng lai
 deactivate UI
 
 UI --> User : Hiển thị thông báo "Đăng xuất thành công" &\nĐiều hướng về Trang chủ
