@@ -1,0 +1,62 @@
+@startuml
+skinparam ConditionStyle diamond
+
+|Khách hàng|
+start
+:Xem chi tiết đơn hàng trên màn hình biên nhận;
+:Nhấn chọn "Hủy đơn hàng";
+
+|Frontend|
+:Hiển thị hộp thoại xác nhận hủy đơn;
+
+|Khách hàng|
+:Xác nhận đồng ý hủy đơn;
+
+|Frontend|
+:Gửi yêu cầu hủy đơn hàng (PATCH /orders/:id/cancel);
+
+|Backend|
+:Xác thực tài khoản và kiểm tra quyền sở hữu đơn hàng;
+if (Quyền sở hữu hợp lệ?) then (Đúng)
+  :Kiểm tra trạng thái đơn hàng hiện tại;
+  if (Trạng thái là PENDING hoặc PAYMENT_FAILED?) then (Đúng)
+    :Bắt đầu giao dịch cơ sở dữ liệu (Transaction);
+    :Hoàn trả số lượng tồn kho nguyên liệu của các món;
+    if (Đơn hàng có dùng điểm đổi thưởng?) then (Có)
+      :Hoàn lại điểm tích lũy vào tài khoản khách hàng;
+    else (Không)
+    endif
+    :Cập nhật trạng thái đơn hàng thành CANCELLED;
+    :Xác nhận giao dịch thành công (Commit);
+    :Trả về kết quả hủy đơn hàng;
+
+    |Frontend|
+    :Cập nhật giao diện biên nhận thành "Đã hủy";
+    :Vô hiệu hóa nút thanh toán và nút hủy đơn;
+    :Hiển thị thông báo hủy đơn thành công;
+
+    |Khách hàng|
+    :Nhận thông báo hủy đơn thành công;
+    stop
+  else (Sai - Đơn đã PAID hoặc đang pha chế)
+    :Từ chối yêu cầu hủy đơn;
+    :Trả về thông báo lỗi vi phạm quy tắc chuyển trạng thái;
+
+    |Frontend|
+    :Hiển thị thông báo lỗi "Khách không thể tự hủy đơn đã thanh toán";
+
+    |Khách hàng|
+    :Xem thông báo lỗi và liên hệ nhân viên;
+    stop
+  endif
+else (Sai)
+  :Từ chối truy cập (401 / 403);
+
+  |Frontend|
+  :Hiển thị thông báo không có quyền thực hiện;
+
+  |Khách hàng|
+  stop
+endif
+
+@enduml
