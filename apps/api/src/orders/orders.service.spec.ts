@@ -37,6 +37,9 @@ describe('OrdersService', () => {
   };
 
   const mockPrisma = {
+    order: {
+      findUnique: jest.fn(),
+    },
     $transaction: jest.fn((callback: (tx: typeof mockTx) => unknown) =>
       callback(mockTx),
     ),
@@ -253,5 +256,29 @@ describe('OrdersService', () => {
     ).rejects.toThrow(BadRequestException);
 
     expect(mockTx.order.create).not.toHaveBeenCalled();
+  });
+
+  it('trùng Idempotency-Key: trả về đơn hàng cũ và không trừ kho lại', async () => {
+    const existingOrder = {
+      orderId: 'order-existing',
+      userId: 'user-1',
+      status: OrderStatus.PENDING,
+      totalAmount: 46000,
+    };
+    mockPrisma.order.findUnique.mockResolvedValue(existingOrder);
+
+    const result = await service.createOrder(
+      'user-1',
+      { items: [{ productId: 'prod-1', sizeId: 'size-l', quantity: 1 }] },
+      'idem-key-123',
+    );
+
+    expect(result).toEqual(existingOrder);
+    expect(mockPrisma.order.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { idempotencyKey: 'user-1:idem-key-123' },
+      }),
+    );
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
   });
 });
