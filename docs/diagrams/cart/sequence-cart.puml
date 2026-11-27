@@ -38,7 +38,7 @@ deactivate Store
 CartUI --> User : Hiển thị danh sách món (tách dòng theo tùy biến - AC-03.3)
 deactivate CartUI
 
-alt Cập nhật số lượng hoặc Xóa món (AC-03.4)
+opt Cập nhật số lượng hoặc Xóa món (AC-03.4)
     User -> CartUI : Nhấn Tăng (+) / Giảm (-) hoặc Xóa món
     activate CartUI
     CartUI -> Store : updateQuantity(itemId, qty) / removeItem(itemId)
@@ -50,15 +50,34 @@ alt Cập nhật số lượng hoặc Xóa món (AC-03.4)
     deactivate Store
     CartUI --> User : Cập nhật số lượng & tổng tiền tức thì
     deactivate CartUI
+end
 
-else Đổi điểm thưởng giảm giá trực tiếp (FR-10)
+opt Áp dụng mã khuyến mãi - Coupon (FR-03)
+    User -> CartUI : Nhập mã khuyến mãi (Coupon) & nhấn "Áp dụng"
+    activate CartUI
+    CartUI -> Store : applyPromotion(promotionCode)
+    activate Store
+    alt Mã hợp lệ & Subtotal >= minimumOrderAmount
+        Store -> Store : Tính promotionDiscount (giới hạn giữ tối thiểu 5.000 VNĐ)\n& cập nhật GrandTotal
+        Store -> Storage : Lưu mã khuyến mãi vào "brewlite-cart"
+        Store --> CartUI : Áp dụng mã thành công
+        CartUI --> User : Hiển thị mức giảm & Tổng thanh toán mới
+    else Mã không tồn tại hoặc chưa đạt giá trị tối thiểu
+        Store --> CartUI : Từ chối áp dụng mã
+        CartUI --> User : Hiển thị thông báo lỗi điều kiện Coupon
+    end
+    deactivate Store
+    deactivate CartUI
+end
+
+opt Đổi điểm thưởng giảm giá trực tiếp (FR-10)
     User -> CartUI : Nhập số điểm muốn đổi & nhấn "Áp dụng"
     activate CartUI
     CartUI -> Store : applyLoyaltyPoints(redeemPoints, userPoints)
     activate Store
 
     alt Số điểm hợp lệ (0 <= redeemPoints <= userPoints) (AC-10.3)
-        Store -> Store : Tính Discount = redeemPoints * 1.000 VNĐ\nvà GrandTotal = Subtotal - Discount
+        Store -> Store : Giới hạn điểm tối đa theo (afterPromo - 5.000 VNĐ) / 1.000\nTính Discount = appliedPoints * 1.000 VNĐ\n& GrandTotal = Subtotal - totalDiscount (tối thiểu 5.000 VNĐ)
         Store -> Storage : Lưu trạng thái chiết khấu
         Store --> CartUI : Áp dụng giảm giá thành công
         CartUI --> User : Hiển thị mức giảm "-X.000 đ" & Tổng thanh toán
