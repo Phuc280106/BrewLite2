@@ -2,7 +2,7 @@ name: CD - Docker, Deploy, Smoke Test
 
 on:
   workflow_run:
-    workflows: ["CI - Install, Lint, Test, Build"]
+    workflows: ['CI - Install, Lint, Test, Build']
     types: [completed]
     branches: [main]
   push:
@@ -52,8 +52,22 @@ jobs:
     name: Deploy
     needs: docker-and-push
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Run Prisma migrations
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: npx --yes prisma@5.22.0 migrate deploy
+
       - name: Trigger Render Deploy Hook
         run: |
           curl -fsS -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
