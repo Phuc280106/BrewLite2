@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { AuthUser } from '@/types/auth';
@@ -56,6 +56,7 @@ export default function CartPage() {
   const [createdOrder, setCreatedOrder] = useState<CreatedOrderSummary | null>(null);
   const [isLoadingPromotions, setIsLoadingPromotions] = useState(true);
   const [promotionsError, setPromotionsError] = useState<string | null>(null);
+  const orderIdempotencyKeyRef = useRef<string | null>(null);
 
   const items = useCartStore((state) => state.items);
   const availablePromotions = useCartStore((state) => state.availablePromotions);
@@ -84,6 +85,10 @@ export default function CartPage() {
       void syncLoyaltyPoints();
     }
   }, [currentUser?.userId]);
+
+  useEffect(() => {
+    orderIdempotencyKeyRef.current = null;
+  }, [items, appliedPromotion?.promotionCode, pointsRedeemed]);
 
   const loadPromotions = useCallback(
     async (signal?: AbortSignal) => {
@@ -164,6 +169,13 @@ export default function CartPage() {
       return;
     }
 
+    if (!orderIdempotencyKeyRef.current) {
+      orderIdempotencyKeyRef.current =
+        typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+          ? crypto.randomUUID()
+          : `order-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    }
+
     setIsSubmitting(true);
     try {
       const response = await fetch(`${API_BASE}/orders`, {
@@ -171,6 +183,7 @@ export default function CartPage() {
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
+          'Idempotency-Key': orderIdempotencyKeyRef.current,
         },
         body: JSON.stringify({
           items: items.map((item) => ({
