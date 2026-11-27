@@ -35,7 +35,7 @@ partition "Người dùng" {
 }
 
 partition "Hệ thống" {
-    :Kiểm tra định dạng mật khẩu (>= 8 ký tự);
+    :Kiểm tra định dạng mật khẩu (>= 6 ký tự);
     
     if () then ([Mật khẩu hợp lệ])
         :Kiểm tra trùng lặp email trong hệ thống;

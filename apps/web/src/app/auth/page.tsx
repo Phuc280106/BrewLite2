@@ -24,7 +24,7 @@ function AuthContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const modeParam = searchParams.get('mode') as AuthMode | null;
-  const initialMode: AuthMode = modeParam === 'signup' || modeParam === 'forgot' ? modeParam : 'signin';
+  const initialMode: AuthMode = modeParam === 'signup' ? 'signup' : 'signin';
 
   return (
     <div className="min-h-screen bg-[#FBF8F5] text-[#1F1612] flex flex-col justify-between">

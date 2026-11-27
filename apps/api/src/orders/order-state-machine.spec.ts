@@ -350,6 +350,7 @@ describe('Order State Machine & Status Updates (Tuấn Thành - Module 6)', () =
       createOrder: jest.fn(),
       findMyOrders: jest.fn(),
       findOneForUser: jest.fn(),
+      findBaristaQueue: jest.fn(),
     };
 
     beforeEach(() => {
@@ -375,6 +376,19 @@ describe('Order State Machine & Status Updates (Tuấn Thành - Module 6)', () =
         'BARISTA',
       );
       expect(result).toEqual({ orderId: 'order-1', status: OrderStatus.READY });
+    });
+
+    it('should call ordersService.findBaristaQueue for getBaristaQueue', async () => {
+      mockOrdersService.findBaristaQueue = jest.fn().mockResolvedValue([]);
+
+      const user = { userId: 'barista-1', role: 'BARISTA' };
+      const result = await controller.getBaristaQueue(user);
+
+      expect(mockOrdersService.findBaristaQueue).toHaveBeenCalledWith(
+        'barista-1',
+        'BARISTA',
+      );
+      expect(result).toEqual([]);
     });
   });
 });

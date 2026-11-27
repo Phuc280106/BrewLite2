@@ -286,6 +286,59 @@ export class OrdersService {
   }
 
   /**
+   * FR-09: Lấy danh sách hàng đợi các đơn đang hoạt động (PAID, PREPARING, READY)
+   * dành riêng cho nhân viên quầy (BARISTA / ADMIN).
+   * Sắp xếp theo FIFO (createdAt ASC) để pha chế theo đúng thứ tự đặt đơn.
+   */
+  async findBaristaQueue(authUserId: string, role?: string) {
+    if (!authUserId) {
+      throw new UnauthorizedException('Vui lòng đăng nhập để truy cập hàng đợi pha chế');
+    }
+
+    const isStaff = role === 'BARISTA' || role === 'ADMIN';
+    if (!isStaff) {
+      throw new ForbiddenException(
+        'Bạn không có quyền truy cập hàng đợi pha chế dành cho nhân viên',
+      );
+    }
+
+    return this.prisma.order.findMany({
+      where: {
+        status: {
+          in: [OrderStatus.PAID, OrderStatus.PREPARING, OrderStatus.READY],
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+      include: {
+        items: {
+          include: {
+            size: true,
+            toppings: true,
+            product: {
+              select: {
+                productId: true,
+                imageUrl: true,
+              },
+            },
+          },
+        },
+        promotion: true,
+        payments: {
+          orderBy: { createdAt: 'desc' },
+        },
+        loyaltyTransactions: true,
+        user: {
+          select: {
+            userId: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+    });
+  }
+
+  /**
    * FR-07: Lấy chi tiết biên nhận & trạng thái đơn hàng có kiểm tra quyền sở hữu.
    * Chủ đơn hàng hoặc nhân viên quầy (BARISTA / ADMIN) đều có quyền tra cứu.
    */

@@ -1,0 +1,68 @@
+@startuml
+actor "Khách hàng" as Customer
+participant "Frontend" as UI
+participant "OrderController" as Controller
+participant "OrderService" as Service
+participant "PrismaService" as Prisma
+database "PostgreSQL" as DB
+
+Customer -> UI : chonHuyDonHang(orderId)
+activate UI
+UI --> Customer : hienThiXacNhanHuy()
+
+Customer -> UI : xacNhanHuyDon()
+UI -> Controller : yeuCauHuyDonHang(orderId, token)
+activate Controller
+
+Controller -> Service : huyDonHang(orderId, userId)
+activate Service
+
+Service -> Prisma : timDonHang(orderId)
+activate Prisma
+Prisma -> DB : truyVanDonHang(orderId)
+activate DB
+DB --> Prisma : banGhiDonHang
+deactivate DB
+Prisma --> Service : thongTinDonHang
+deactivate Prisma
+
+alt Kiểm tra hợp lệ (status là PENDING hoặc PAYMENT_FAILED)
+    Service -> Prisma : batDauGiaoDich()
+    activate Prisma
+
+    Service -> Prisma : hoanTraTonKhoNguyenLieu(orderId)
+    Prisma -> DB : congLaiTonKhoNguyenLieu()
+    activate DB
+    DB --> Prisma : hoanKhoThanhCong
+    deactivate DB
+
+    Service -> Prisma : capNhatTrangThaiHuy(orderId)
+    Prisma -> DB : capNhatTrangThaiDonHang(CANCELLED)
+    activate DB
+    DB --> Prisma : capNhatThanhCong
+    deactivate DB
+
+    Prisma --> Service : xacNhanGiaoDichThanhCong()
+    deactivate Prisma
+
+    Service --> Controller : ketQuaHuyDonDto
+    deactivate Service
+
+    Controller --> UI : traVeKetQuaHuyDon(ketQuaHuyDonDto)
+    deactivate Controller
+
+    UI -> UI : renderTrangThaiDaHuy()
+    UI --> Customer : hienThiThongBaoHuyThanhCong()
+    deactivate UI
+else Đơn hàng đã thanh toán (PAID) hoặc đang pha chế
+    Service --> Controller : loiKhongTheHuyDon
+    activate Service
+    activate Controller
+    deactivate Service
+    Controller --> UI : traVeThongBaoLoi()
+    deactivate Controller
+    activate UI
+    UI --> Customer : hienThiLoiKhongTheHuy()
+    deactivate UI
+end
+@enduml

@@ -64,6 +64,20 @@ export class OrdersController {
     return this.ordersService.findMyOrders(userId);
   }
 
+  // GET /api/v1/orders/queue (Phân hệ 6 - FR-09: Hàng đợi đơn hàng cho Barista / KDS)
+  @Get('queue')
+  @ApiOperation({
+    summary:
+      'Lấy danh sách hàng đợi các đơn đang chờ pha chế (PAID, PREPARING, READY) cho Barista',
+  })
+  getBaristaQueue(@CurrentUser() user: JwtPayloadUser) {
+    const userId = user?.userId || user?.sub;
+    if (!userId) {
+      throw new UnauthorizedException('Không xác định được người dùng từ JWT');
+    }
+    return this.ordersService.findBaristaQueue(userId, user?.role);
+  }
+
   // GET /api/v1/orders/:id (Phân hệ 6 - FR-07: Chi tiết biên nhận & theo dõi trạng thái)
   @Get(':id')
   @ApiOperation({ summary: 'Lấy chi tiết biên nhận và tiến trình trạng thái đơn hàng' })

@@ -163,8 +163,21 @@ export default function MenuPage() {
             />
           </div>
 
-          {/* Tích điểm, User và Giỏ hàng ở góc phải */}
+          {/* Tích điểm, Barista KDS, User và Giỏ hàng ở góc phải */}
           <div className="flex items-center gap-3 shrink-0">
+            {/* Nút truy cập nhanh KDS cho nhân viên Barista / Admin */}
+            {currentUser && (currentUser.role === 'BARISTA' || currentUser.role === 'ADMIN') && (
+              <button
+                onClick={() => router.push('/barista')}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#3D2615] hover:bg-[#2B1810] text-[#FED7AA] font-bold text-xs shadow-xs transition"
+                title="Mở màn hình điều phối pha chế Barista"
+              >
+                <Coffee className="w-3.5 h-3.5 text-[#F59E0B]" />
+                <span className="hidden sm:inline">Barista KDS</span>
+                <span className="sm:hidden">KDS</span>
+              </button>
+            )}
+
             {/* Badge Tích điểm: chỉ hiện khi đã đăng nhập (không còn hiện 120 điểm giả khi chưa đăng nhập) */}
             {currentUser && (
               <div className="bg-[#EEF7F2] text-[#2D7A4D] font-bold text-xs sm:text-sm px-3.5 py-1.5 rounded-full flex items-center gap-1.5 border border-[#D5EFE0] shadow-xs">
@@ -238,6 +251,27 @@ export default function MenuPage() {
                       </span>
                       <span className="font-bold text-[#2D7A4D]">{currentUser.points ?? 0} pts</span>
                     </div>
+
+                    {/* Lối tắt KDS Barista nếu là nhân viên quầy */}
+                    {(currentUser.role === 'BARISTA' || currentUser.role === 'ADMIN') && (
+                      <div className="py-2 border-t border-stone-100">
+                        <button
+                          onClick={() => {
+                            setIsUserMenuOpen(false);
+                            router.push('/barista');
+                          }}
+                          className="w-full flex items-center justify-between py-2 px-3 rounded-xl bg-[#FDF8F3] hover:bg-[#FBEFE3] text-[#3D2615] text-xs font-bold transition cursor-pointer border border-[#E9D9CC]"
+                        >
+                          <span className="flex items-center gap-2">
+                            <Coffee className="w-4 h-4 text-[#C8682E]" />
+                            <span>Màn hình Barista (KDS)</span>
+                          </span>
+                          <span className="text-[10px] bg-[#C8682E] text-white px-1.5 py-0.5 rounded font-mono">
+                            KDS
+                          </span>
+                        </button>
+                      </div>
+                    )}
 
                     {/* Nút Đăng xuất */}
                     <div className="pt-2 border-t border-stone-100">

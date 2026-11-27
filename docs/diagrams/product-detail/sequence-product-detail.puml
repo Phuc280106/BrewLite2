@@ -1,12 +1,10 @@
 @startuml
-title Sơ đồ Sequence - Chức năng Chọn và tùy chỉnh món ăn 
+title Sơ đồ Sequence - Chức năng Chọn và tùy chỉnh món ăn
 autonumber
 
 actor "Khách hàng" as Customer
 participant "Giao diện (UI)" as UI
-participant "Hệ thống (Controller)" as System
-database "Cơ sở dữ liệu\n(Giỏ hàng)" as DB
-
+participant "Hệ thống (Service)" as System
 
 Customer -> UI ++: Chọn 1 món ăn từ danh sách menu
 UI --> Customer --: Hiển thị hộp thoại (modal) tùy chỉnh món ăn
@@ -18,19 +16,13 @@ loop Chọn và thay đổi tùy chỉnh
     UI --> Customer --: Hiển thị giá cuối cùng của sản phẩm
 end
 
-alt Khách hàng tiến hành đặt món 
-
-Customer -> UI ++: Nhấn nút "Đặt món ăn"
-UI -> System ++: Gửi yêu cầu thêm món vào giỏ hàng (kèm tùy chỉnh)
-System -> DB ++: Lưu thông tin món ăn vào giỏ hàng
-DB --> System --: Xác nhận lưu thành công
-System --> UI --: Phản hồi thành công & trả về số lượng giỏ hàng mới
-UI --> Customer: Hiển thị thông báo thành công & cập nhật số lượng trên icon giỏ hàng
-
-
-
-else Khách hàng đóng hộp thoại trước khi bấm đặt món
-    Customer -> UI ++: Nhấn nút đóng hộp thoại 
+alt Khách hàng tiến hành thêm vào giỏ hàng
+    Customer -> UI ++: Nhấn nút "Thêm vào giỏ hàng"
+    UI -> System ++: Gửi yêu cầu thêm món vào giỏ hàng (kèm tùy chỉnh)
+    System --> UI --: Phản hồi thành công & trả về số lượng mới cho giỏ hàng
+    UI --> Customer --: Hiển thị thông báo thành công &\ncập nhật số lượng trên icon giỏ hàng
+else Khách hàng đóng hộp thoại trước khi bấm thêm vào giỏ hàng
+    Customer -> UI ++: Nhấn nút đóng hộp thoại
     UI --> Customer --: Quay về màn hình menu\n(Không thêm món vào giỏ hàng)
 end
 
