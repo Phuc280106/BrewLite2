@@ -32,17 +32,17 @@ export function DrinkGraphicFallback({ name }: { name: string }) {
   const isFruit = name.toLowerCase().includes('trà đào') || name.toLowerCase().includes('trà vải') || name.toLowerCase().includes('nước ép');
 
   let bgGradient = 'from-amber-600 to-amber-900';
-  let badgeText = '☕ Coffee';
+  let badgeText = 'Coffee';
 
   if (isMatcha) {
     bgGradient = 'from-emerald-500 to-teal-800';
-    badgeText = '🍵 Matcha';
+    badgeText = 'Matcha';
   } else if (isBoba) {
     bgGradient = 'from-amber-700 to-stone-800';
-    badgeText = '🧋 Trà sữa';
+    badgeText = 'Trà sữa';
   } else if (isFruit) {
     bgGradient = 'from-orange-500 to-rose-700';
-    badgeText = '🍹 Trà & Nước ép';
+    badgeText = 'Trà & Nước ép';
   }
 
   return (

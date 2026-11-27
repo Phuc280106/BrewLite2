@@ -8,7 +8,6 @@ import {
   ArrowLeft,
   Landmark,
   Loader2,
-  Lock,
   User,
   CreditCard,
   Wallet,
@@ -263,11 +262,6 @@ function CheckoutContent() {
                 </button>
               );
             })}
-          </div>
-
-          <div className="mt-3 rounded-2xl bg-[#E8F5EE] text-[#2D7A4D] p-3.5 flex items-start gap-2.5 text-sm">
-            <Lock className="w-4 h-4 mt-0.5 shrink-0" />
-            <p>Bạn sẽ được chuyển sang Cổng VNPay Sandbox để hoàn tất thanh toán an toàn. Kết quả giao dịch được xác minh bằng chữ ký số HMAC-SHA512.</p>
           </div>
         </section>
       </div>
