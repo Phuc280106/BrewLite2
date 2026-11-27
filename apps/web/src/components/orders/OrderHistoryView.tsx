@@ -14,7 +14,6 @@ import {
   ChevronRight,
   Clock,
   Coffee,
-  Gift,
   ReceiptText,
   RefreshCw,
   ShoppingBag,
@@ -427,14 +426,6 @@ export const OrderHistoryView: React.FC = () => {
           >
             <ReceiptText className="w-4 h-4 text-[#3D2615]" />
             <span>Đơn hàng</span>
-          </Link>
-
-          <Link
-            href="/cart"
-            className="flex flex-col sm:flex-row items-center gap-1 text-stone-500 hover:text-[#3D2615] transition px-3 py-1.5 rounded-full text-xs sm:text-sm font-medium"
-          >
-            <Gift className="w-4 h-4" />
-            <span>Tích điểm</span>
           </Link>
 
           <Link

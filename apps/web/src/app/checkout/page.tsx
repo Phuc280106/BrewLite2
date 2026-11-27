@@ -8,8 +8,6 @@ import {
   ArrowLeft,
   Landmark,
   Loader2,
-  Lock,
-  QrCode,
   User,
   CreditCard,
   Wallet,
@@ -40,15 +38,6 @@ const VNPAY_OPTIONS: VnpayOption[] = [
     detail: 'Tự chọn phương thức tại cổng thanh toán',
     detailClass: 'text-[#2D7A4D] font-semibold',
     icon: Wallet,
-  },
-  {
-    id: 'VNPAY_QR',
-    bankCode: 'VNPAYQR',
-    title: 'VNPAY-QR',
-    subtitle: '(Quét mã QR)',
-    detail: 'Ứng dụng ngân hàng & ví điện tử',
-    detailClass: 'text-stone-500',
-    icon: QrCode,
   },
   {
     id: 'VNPAY_ATM',
@@ -273,11 +262,6 @@ function CheckoutContent() {
                 </button>
               );
             })}
-          </div>
-
-          <div className="mt-3 rounded-2xl bg-[#E8F5EE] text-[#2D7A4D] p-3.5 flex items-start gap-2.5 text-sm">
-            <Lock className="w-4 h-4 mt-0.5 shrink-0" />
-            <p>Bạn sẽ được chuyển sang Cổng VNPay Sandbox để hoàn tất thanh toán an toàn. Kết quả giao dịch được xác minh bằng chữ ký số HMAC-SHA512.</p>
           </div>
         </section>
       </div>

@@ -18,7 +18,6 @@ import {
   Coffee,
   CreditCard,
   Loader2,
-  ReceiptText,
   ShoppingCart,
   Trash2,
   AlertCircle,
@@ -136,6 +135,9 @@ export default function CartPage() {
     setItemPendingDelete(item);
   };
 
+  const isStaffRole =
+    currentUser?.role === 'BARISTA' || currentUser?.role === 'ADMIN';
+
   const handlePlaceOrder = async () => {
     if (items.length === 0 || isSubmitting) return;
     setSubmitError(null);
@@ -143,6 +145,13 @@ export default function CartPage() {
     const token = getAuthToken();
     if (!token || !currentUser) {
       router.push('/auth');
+      return;
+    }
+
+    if (isStaffRole) {
+      setSubmitError(
+        'Tài khoản nhân viên (Barista/Admin) chỉ quản lý trạng thái đơn hàng, không được phép đặt đơn.',
+      );
       return;
     }
 
@@ -307,14 +316,6 @@ export default function CartPage() {
                 <span>Thanh toán ngay</span>
               </Link>
               <Link
-                href={`/orders/${encodeURIComponent(createdOrder.orderId)}/receipt`}
-                data-testid="view-receipt-button"
-                className="min-h-[44px] px-5 py-3 rounded-2xl bg-[#3D2615] hover:bg-[#2A190D] text-white font-bold text-sm flex items-center justify-center gap-2 transition"
-              >
-                <ReceiptText className="w-4 h-4" />
-                <span>Xem biên nhận</span>
-              </Link>
-              <Link
                 href="/menu"
                 className="min-h-[44px] px-5 py-3 rounded-2xl border border-[#EDE7DF] bg-white hover:bg-stone-50 text-[#3D2615] font-bold text-sm flex items-center justify-center gap-2 transition"
               >
@@ -409,9 +410,23 @@ export default function CartPage() {
                   </div>
                 )}
 
+                {isStaffRole && (
+                  <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-xl p-3 text-xs flex items-start justify-between gap-2">
+                    <span>
+                      Tài khoản Barista/Admin chỉ quản lý trạng thái đơn hàng, không được đặt đơn.
+                    </span>
+                    <Link
+                      href="/barista"
+                      className="font-bold underline shrink-0 hover:text-amber-950"
+                    >
+                      Mở Barista KDS
+                    </Link>
+                  </div>
+                )}
+
                 <button
                   type="button"
-                  disabled={items.length === 0 || isSubmitting}
+                  disabled={items.length === 0 || isSubmitting || isStaffRole}
                   onClick={handlePlaceOrder}
                   data-testid="place-order-button"
                   className="w-full min-h-[48px] py-3.5 px-5 rounded-2xl bg-[#D97706] hover:bg-[#C26804] disabled:bg-stone-300 disabled:cursor-not-allowed text-white font-bold text-sm sm:text-base transition shadow-md flex items-center justify-center gap-2 cursor-pointer"
@@ -421,6 +436,8 @@ export default function CartPage() {
                       <Loader2 className="w-4 h-4 animate-spin" />
                       <span>Đang khởi tạo đơn hàng...</span>
                     </>
+                  ) : isStaffRole ? (
+                    <span>Barista không được phép đặt đơn</span>
                   ) : currentUser ? (
                     <span>Tiến hành đặt hàng • {formatVND(totals.grandTotal)}</span>
                   ) : (

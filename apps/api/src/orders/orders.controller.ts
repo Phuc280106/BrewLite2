@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  ForbiddenException,
   Get,
   Param,
   Patch,
@@ -38,6 +39,11 @@ export class OrdersController {
     const userId = user?.userId || user?.sub;
     if (!userId) {
       throw new UnauthorizedException('Không xác định được người dùng từ JWT');
+    }
+    if (user?.role === 'BARISTA' || user?.role === 'ADMIN') {
+      throw new ForbiddenException(
+        'Tài khoản nhân viên (Barista/Admin) chỉ quản lý trạng thái đơn hàng, không được phép đặt đơn.',
+      );
     }
     return this.ordersService.createOrder(userId, createOrderDto);
   }

@@ -5,60 +5,64 @@ skinparam defaultFontName Arial
 skinparam roundCorner 10
 autonumber
 
-actor ":KhachHang" as KH
-participant ":ManHinhDatHang" as UI
+actor ":Khách hàng" as KH
+participant ":Màn hình Giỏ hàng" as UI
 participant ":OrdersController" as Controller
 participant ":OrdersService" as Service
 database ":Database" as DB
 
-KH -> UI: nhanNutDatHang()
+KH -> UI: Nhấn nút "Đặt hàng"
 activate UI
-UI -> UI: khoaNutDatHang()
+UI -> UI: Khóa nút đặt hàng
 
-UI -> Controller: yeuCauTaoDon(danhSachMon, tongTien, hinhThuc)
+UI -> Controller: Gửi yêu cầu tạo đơn (items, promotionCode, pointsToRedeem)
 activate Controller
 
-Controller -> Controller: kiemTraXacThuc()
+Controller -> Controller: Kiểm tra xác thực JWT
 
 alt Token không hợp lệ
-    Controller --> UI: thongBaoLoiXacThuc
-    UI -> UI: moLaiNutDatHang()
-    UI --> KH: yeuCauDangNhapLai()
+    Controller --> UI: Trả về thông báo lỗi xác thực
+    UI -> UI: Mở lại nút đặt hàng
+    UI --> KH: Yêu cầu đăng nhập lại
 else Token hợp lệ
-    Controller -> Service: taoDonHang(maKhachHang, danhSachMon, tongTien)
+    Controller -> Service: createOrder(userId, dto)
     activate Service
 
-    Service -> DB: batDauGiaoDich()
+    Service -> DB: Bắt đầu giao dịch
     activate DB
-    Service -> DB: kiemTraVaGiuTonKho(danhSachMon)
+    Service -> DB: Truy vấn sản phẩm, công thức, khuyến mãi và điểm thưởng
+    DB --> Service: Dữ liệu sản phẩm, công thức, khuyến mãi và điểm của khách
+    Service -> Service: buildValidatedOrderLines()\n(Tính tạm tính & định lượng nguyên liệu cần dùng)
 
-    alt Đủ nguyên liệu tồn kho
-        DB --> Service: xacNhanGiuKho
-        Service -> DB: luuDonHang(thongTinDon, "PENDING")
-        DB --> Service: maDonHang
-        Service -> DB: hoanTatGiaoDich()
+    Service -> DB: Lấy tồn kho hiện có và khóa dòng
+    DB --> Service: Số lượng tồn kho hiện có
+    Service -> Service: Kiểm tra tồn kho đủ cho đơn hàng
+
+    alt Đủ nguyên liệu & topping tồn kho
+        Service -> DB: Trừ tồn kho nguyên liệu và topping
+        DB --> Service: Tồn kho sau cập nhật
+        Service -> Service: Tính giảm giá khuyến mãi & đổi điểm\n(Giữ mức thanh toán tối thiểu 5.000đ)
+        Service -> DB: Lưu đơn hàng mới (trạng thái PENDING)
+        DB --> Service: Thông tin đơn hàng vừa tạo (orderId)
+        Service -> DB: Hoàn tất giao dịch
         deactivate DB
 
-        Service --> Controller: taoDonThanhCong(maDonHang)
+        Service --> Controller: Trả về đơn hàng vừa tạo (orderId, totalAmount, PENDING)
         deactivate Service
 
-        Controller --> UI: ketQuaTaoDon(maDonHang)
-        UI -> UI: xoaGioHang()
-        UI --> KH: dieuHuongThanhToan(maDonHang)
-
-    else Hết nguyên liệu
-        activate Service
-        activate DB
-        DB --> Service: thongBaoHetHang
-        Service -> DB: huyGiaoDich()
+        Controller --> UI: Trả về kết quả tạo đơn (orderId, totalAmount)
+        UI -> UI: Xóa giỏ hàng
+        UI --> KH: Chuyển sang trang thanh toán (orderId)
+    else Không đủ nguyên liệu hoặc topping
+        Service -> DB: Hủy giao dịch
         deactivate DB
 
-        Service --> Controller: baoLoiHetHang
+        Service --> Controller: Trả về thông báo hết nguyên liệu/topping
         deactivate Service
 
-        Controller --> UI: baoLoiHetHang
-        UI -> UI: moLaiNutDatHang()
-        UI --> KH: hienThiThongBaoHetHang()
+        Controller --> UI: Trả về thông báo hết nguyên liệu/topping
+        UI -> UI: Mở lại nút đặt hàng
+        UI --> KH: Hiển thị thông báo hết nguyên liệu/topping
     end
 end
 

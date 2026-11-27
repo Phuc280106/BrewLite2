@@ -25,7 +25,6 @@ import {
   ChevronDown,
   Coins,
   ReceiptText,
-  Gift,
   User,
   ShoppingCart,
   LogOut,
@@ -423,12 +422,6 @@ export default function MenuPage() {
           >
             <ReceiptText className="w-4 h-4" />
             <span>Đơn hàng</span>
-          </button>
-
-          {/* Nút Tích điểm */}
-          <button className="flex flex-col sm:flex-row items-center gap-1 text-stone-500 hover:text-[#3D2615] transition px-3 py-1.5 rounded-full text-xs sm:text-sm font-medium">
-            <Gift className="w-4 h-4" />
-            <span>Tích điểm</span>
           </button>
 
           {/* Nút Tài khoản */}

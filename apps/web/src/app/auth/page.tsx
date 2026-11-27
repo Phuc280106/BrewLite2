@@ -15,7 +15,6 @@ import {
   Clock,
   Coins,
   ShieldCheck,
-  MapPin,
   ChevronLeft,
 } from 'lucide-react';
 import { AuthForm } from '@/components/auth/AuthForm';
@@ -38,13 +37,6 @@ function AuthContent() {
           <ChevronLeft className="w-4 h-4" />
           <span>Về Thực đơn</span>
         </Link>
-
-        {/* Store Status Chip */}
-        <div className="inline-flex items-center gap-2 bg-white/90 backdrop-blur-sm border border-[#E5E0D8] px-3.5 py-1.5 rounded-full text-xs font-semibold text-[#1F1612] shadow-xs">
-          <span className="w-2 h-2 rounded-full bg-[#10B981] animate-pulse" />
-          <MapPin className="w-3.5 h-3.5 text-[#C8682E]" />
-          <span>Cơ sở Hà Nội · Mở cửa</span>
-        </div>
       </header>
 
       {/* 2. Nội dung chính: Phân chia Layout Responsive */}
