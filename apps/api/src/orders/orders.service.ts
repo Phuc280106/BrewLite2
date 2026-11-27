@@ -42,12 +42,39 @@ export class OrdersService {
    * Tạo đơn hàng mới trong Database Transaction và khóa dòng tồn kho (SELECT FOR UPDATE)
    * để chống bán âm kho khi nhiều khách hàng đặt hàng đồng thời.
    */
-  async createOrder(authUserId: string, dto: CreateOrderDto) {
+  async createOrder(
+    authUserId: string,
+    dto: CreateOrderDto,
+    idempotencyKey?: string,
+  ) {
     if (!authUserId) {
       throw new UnauthorizedException('Vui lòng đăng nhập để đặt đơn hàng');
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const cleanKey = idempotencyKey?.trim() || undefined;
+    const scopedKey = cleanKey ? `${authUserId}:${cleanKey}` : undefined;
+    const orderInclude = {
+      items: {
+        include: {
+          size: true,
+          toppings: true,
+        },
+      },
+      promotion: true,
+    } as const;
+
+    if (scopedKey) {
+      const existingOrder = await this.prisma.order.findUnique({
+        where: { idempotencyKey: scopedKey },
+        include: orderInclude,
+      });
+      if (existingOrder) {
+        return existingOrder;
+      }
+    }
+
+    try {
+      return await this.prisma.$transaction(async (tx) => {
       const userId = await this.resolveUserId(tx, authUserId);
 
       const { lines, subtotal, requiredByIngredient, requiredByTopping } =
@@ -80,6 +107,7 @@ export class OrdersService {
           totalAmount,
           discountAmount: totalDiscount,
           pointsRedeemed,
+          ...(scopedKey ? { idempotencyKey: scopedKey } : {}),
           items: {
             create: lines.map((line) => ({
               productId: line.productId,
@@ -125,7 +153,23 @@ export class OrdersService {
       }
 
       return order;
-    });
+      });
+    } catch (error) {
+      if (
+        scopedKey &&
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        const existingOrder = await this.prisma.order.findUnique({
+          where: { idempotencyKey: scopedKey },
+          include: orderInclude,
+        });
+        if (existingOrder) {
+          return existingOrder;
+        }
+      }
+      throw error;
+    }
   }
 
   /**

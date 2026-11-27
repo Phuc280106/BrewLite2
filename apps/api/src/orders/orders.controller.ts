@@ -3,6 +3,7 @@ import {
   Controller,
   ForbiddenException,
   Get,
+  Headers,
   Param,
   Patch,
   Post,
@@ -35,6 +36,7 @@ export class OrdersController {
   createOrder(
     @CurrentUser() user: JwtPayloadUser,
     @Body() createOrderDto: CreateOrderDto,
+    @Headers('idempotency-key') idempotencyKey?: string,
   ) {
     const userId = user?.userId || user?.sub;
     if (!userId) {
@@ -45,7 +47,7 @@ export class OrdersController {
         'Tài khoản nhân viên (Barista/Admin) chỉ quản lý trạng thái đơn hàng, không được phép đặt đơn.',
       );
     }
-    return this.ordersService.createOrder(userId, createOrderDto);
+    return this.ordersService.createOrder(userId, createOrderDto, idempotencyKey);
   }
 
   // GET /api/v1/orders/me (Phân hệ 6 - FR-08: Lịch sử đơn hàng cá nhân)
