@@ -273,7 +273,7 @@ describe('OrdersService', () => {
       'idem-key-123',
     );
 
-    expect(result).toEqual(existingOrder);
+    expect(result).toEqual({ ...existingOrder, idempotentReplay: true });
     expect(mockPrisma.order.findUnique).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { idempotencyKey: 'user-1:idem-key-123' },
