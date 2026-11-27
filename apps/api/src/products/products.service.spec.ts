@@ -67,8 +67,8 @@ describe('ProductsService', () => {
       {
         productId: 'p1',
         name: 'Cà Phê Muối',
-        isAvailable: true,
-        maxServings: 999,
+        isAvailable: false,
+        maxServings: 0,
       },
     ]);
   });
@@ -105,12 +105,17 @@ describe('ProductsService', () => {
       category: { categoryId: 'c1', name: 'Trà sữa' },
       sizes: [],
       toppings: [],
-      isAvailable: true,
-      maxServings: 999,
+      isAvailable: false,
+      maxServings: 0,
     });
   });
 
   it('calculateServingsFromRecipes should compute isAvailable and maxServings accurately', () => {
+    expect(service.calculateServingsFromRecipes([])).toEqual({
+      isAvailable: false,
+      maxServings: 0,
+    });
+
     expect(
       service.calculateServingsFromRecipes([
         { requiredAmount: 20, ingredient: { stock: 65 } },

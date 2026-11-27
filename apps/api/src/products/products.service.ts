@@ -13,7 +13,7 @@ export class ProductsService {
     recipes: Array<{ requiredAmount: number; ingredient: { stock: number } }>,
   ): { isAvailable: boolean; maxServings: number } {
     if (!recipes || recipes.length === 0) {
-      return { isAvailable: true, maxServings: 999 };
+      return { isAvailable: false, maxServings: 0 };
     }
 
     let minServings = Infinity;
