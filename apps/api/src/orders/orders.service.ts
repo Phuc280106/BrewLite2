@@ -69,7 +69,7 @@ export class OrdersService {
         include: orderInclude,
       });
       if (existingOrder) {
-        return existingOrder;
+        return { ...existingOrder, idempotentReplay: true };
       }
     }
 
@@ -165,7 +165,7 @@ export class OrdersService {
           include: orderInclude,
         });
         if (existingOrder) {
-          return existingOrder;
+          return { ...existingOrder, idempotentReplay: true };
         }
       }
       throw error;
